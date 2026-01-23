@@ -9,7 +9,11 @@ const config = {
       debug: false
     }
   },
-  scene: { preload, create, update }
+  scene: {
+    preload,
+    create,
+    update
+  }
 };
 
 new Phaser.Game(config);
@@ -22,11 +26,11 @@ let gate;
 let finished = false;
 
 function preload() {
-  this.load.image('wizard', 'assets/wizard.png');  
+  this.load.image('wizard', 'assets/wizard.png');
 }
 
 function create() {
-  // Soft magical background
+  // Background
   this.cameras.main.setBackgroundColor('#2b2d5c');
 
   // Platforms
@@ -35,30 +39,29 @@ function create() {
   platforms.create(400, 20).setScale(16, 1).refreshBody();  // ceiling
   platforms.create(400, 300).setScale(3, 1).refreshBody(); // floating
 
+  // Wizard
   wizard = this.physics.add.sprite(100, 440, 'wizard');
-  wizard.setScale(0.2);   // 👈 smaller & cuter
+  wizard.setScale(0.25);
+  wizard.setOrigin(0.5, 1);
   wizard.setCollideWorldBounds(true);
-  wizard.setOrigin(0.5, 1); // 👈 feet touch the ground
+  wizard.body.setSize(wizard.width * 0.4, wizard.height * 0.6);
 
-  wizard.body.setSize(
-  wizard.width * 0.4,
-  wizard.height * 0.6
-);
-
-  // Magical gate (goal)
-  gate = this.add.rectangle(700, 260, 40, 60, 0xffd700);
-  gate.setStrokeStyle(3, 0xffffff);
-
+  // Magic gate (castle placeholder)
+  gate = this.add.rectangle(700, 260, 50, 80, 0xffd700);
+  gate.setStrokeStyle(4, 0xffffff);
+  this.physics.add.existing(gate, true);
 
   // Physics
   this.physics.add.collider(wizard, platforms);
-  this.physics.add.overlap(wizard, gate, win, null, this);
+  this.physics.add.overlap(wizard, gate, reachGate, null, this);
 
   // Controls
   cursors = this.input.keyboard.createCursorKeys();
 
-  // Gentle instructions
-  this.add.text(20, 20,
+  // Instructions
+  this.add.text(
+    20,
+    20,
     '← → Move\nSPACE Float / Flip Gravity\n\nReach the glowing gate ✨',
     { fontSize: '16px', color: '#ffffff' }
   );
@@ -82,11 +85,13 @@ function update() {
   }
 }
 
-function win() {
+function reachGate() {
   finished = true;
   this.physics.pause();
 
-  this.add.text(400, 250,
+  this.add.text(
+    400,
+    250,
     '✨ You made it ✨\n\nTake a breath.\nYou did well.',
     {
       fontSize: '28px',
