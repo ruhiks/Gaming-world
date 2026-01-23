@@ -1,5 +1,3 @@
-console.log("CALM WIZARD GAME v1.0 LOADED");
-
 const config = {
   type: Phaser.AUTO,
   width: 800,
@@ -7,7 +5,7 @@ const config = {
   physics: {
     default: 'arcade',
     arcade: {
-      gravity: { y: 500 },
+      gravity: { y: 600 },
       debug: false
     }
   },
@@ -23,48 +21,63 @@ new Phaser.Game(config);
 let wizard;
 let platforms;
 let cursors;
+let spaceKey;
 let gravityFlipped = false;
 let gate;
 let finished = false;
 
 function preload() {
   this.load.image('wizard', 'assets/wizard.png');
+  this.load.image('block', 'assets/block.png');
+  this.load.image('castle', 'assets/castle.png');
 }
 
 function create() {
-  // Background
   this.cameras.main.setBackgroundColor('#2b2d5c');
 
   // Platforms
   platforms = this.physics.add.staticGroup();
-  platforms.create(400, 480).setScale(16, 1).refreshBody(); // floor
-  platforms.create(400, 20).setScale(16, 1).refreshBody();  // ceiling
-  platforms.create(400, 300).setScale(3, 1).refreshBody(); // floating
+
+  // Floor
+  for (let i = 0; i < 25; i++) {
+    platforms.create(i * 32, 480, 'block').setOrigin(0, 0).refreshBody();
+  }
+
+  // Ceiling
+  for (let i = 0; i < 25; i++) {
+    platforms.create(i * 32, 0, 'block').setOrigin(0, 0).refreshBody();
+  }
+
+  // Floating platform
+  platforms.create(380, 300, 'block').setScale(3, 1).refreshBody();
 
   // Wizard
-  wizard = this.physics.add.sprite(100, 440, 'wizard');
+  wizard = this.physics.add.sprite(100, 430, 'wizard');
   wizard.setScale(0.25);
   wizard.setOrigin(0.5, 1);
   wizard.setCollideWorldBounds(true);
   wizard.body.setSize(wizard.width * 0.4, wizard.height * 0.6);
+  wizard.body.setBounce(0.05);
 
-  // Magic gate (castle placeholder)
-  gate = this.add.rectangle(700, 260, 50, 80, 0xffd700);
-  gate.setStrokeStyle(4, 0xffffff);
-  this.physics.add.existing(gate, true);
+  // Castle (goal)
+  gate = this.physics.add.staticSprite(700, 430, 'castle');
+  gate.setScale(0.4);
 
   // Physics
   this.physics.add.collider(wizard, platforms);
-  this.physics.add.overlap(wizard, gate, reachGate, null, this);
+  this.physics.add.overlap(wizard, gate, reachCastle, null, this);
 
   // Controls
   cursors = this.input.keyboard.createCursorKeys();
+  spaceKey = this.input.keyboard.addKey(
+    Phaser.Input.Keyboard.KeyCodes.SPACE
+  );
 
   // Instructions
   this.add.text(
     20,
     20,
-    '← → Move\nSPACE Float / Flip Gravity\n\nReach the glowing gate ✨',
+    '← → Move\nSPACE Flip Gravity\n\nReach the castle 🏰',
     { fontSize: '16px', color: '#ffffff' }
   );
 }
@@ -72,29 +85,39 @@ function create() {
 function update() {
   if (finished) return;
 
+  // Horizontal movement (smooth)
   if (cursors.left.isDown) {
-    wizard.body.setVelocityX(-180);
+    wizard.setVelocityX(-200);
+    wizard.setFlipX(true);
   } else if (cursors.right.isDown) {
-    wizard.body.setVelocityX(180);
+    wizard.setVelocityX(200);
+    wizard.setFlipX(false);
   } else {
-    wizard.body.setVelocityX(0);
+    wizard.setVelocityX(0);
   }
 
-  if (Phaser.Input.Keyboard.JustDown(cursors.space)) {
+  // Gravity flip (controlled, no spam)
+  if (Phaser.Input.Keyboard.JustDown(spaceKey)) {
     gravityFlipped = !gravityFlipped;
-    wizard.body.setGravityY(gravityFlipped ? -900 : 0);
-    wizard.scaleY = gravityFlipped ? -1 : 1;
+
+    wizard.body.setGravityY(gravityFlipped ? -1200 : 0);
+    wizard.setFlipY(gravityFlipped);
+  }
+
+  // Safety reset if falling out
+  if (wizard.y > 550 || wizard.y < -50) {
+    this.scene.restart();
   }
 }
 
-function reachGate() {
+function reachCastle() {
   finished = true;
   this.physics.pause();
 
   this.add.text(
     400,
     250,
-    '✨ You made it ✨\n\nTake a breath.\nYou did well.',
+    '✨ You reached the castle ✨\n\nWell done.\nTake a breath.',
     {
       fontSize: '28px',
       color: '#ffffff',
@@ -102,6 +125,7 @@ function reachGate() {
     }
   ).setOrigin(0.5);
 }
+
 
 
 
