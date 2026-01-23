@@ -22,7 +22,7 @@ let gate;
 let finished = false;
 
 function preload() {
-  // No assets yet — intentional
+  this.load.image('wizard', 'assets/wizard.png');  
 }
 
 function create() {
@@ -89,3 +89,4 @@ function win() {
     }
   ).setOrigin(0.5);
 }
+
