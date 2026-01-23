@@ -35,9 +35,11 @@ function create() {
   platforms.create(400, 20).setScale(16, 1).refreshBody();  // ceiling
   platforms.create(400, 300).setScale(3, 1).refreshBody(); // floating
 
- wizard = this.physics.add.sprite(100, 440, 'wizard');
- wizard.setScale(0.5);
+  wizard = this.physics.add.sprite(100, 440, 'wizard');
+  wizard.setScale(0.2);   // 👈 smaller & cuter
   wizard.setCollideWorldBounds(true);
+  wizard.setOrigin(0.5, 1); // 👈 feet touch the ground
+
 
 
   // Magical gate (goal)
@@ -89,5 +91,6 @@ function win() {
     }
   ).setOrigin(0.5);
 }
+
 
 
