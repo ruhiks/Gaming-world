@@ -16,9 +16,7 @@ const config = {
         update: update
     }
 };
-
 const game = new Phaser.Game(config);
-
 let player;
 let platformGroup;
 let spikeGroup;
@@ -29,7 +27,6 @@ let isGravityInverted = false;
 let currentLevelIndex = 0;
 let isLevelTransitioning = false;
 let instructionText;
-
 // Level Data
 const levels = [
     // Level 1: Tutorial
@@ -74,7 +71,6 @@ const levels = [
         ]
     }
 ];
-
 function preload() {
     this.load.image('bg', 'assets/bg.png');
     this.load.image('wizard', 'assets/wizard.png');
@@ -82,28 +78,21 @@ function preload() {
     this.load.image('castle', 'assets/castle.png');
     this.load.image('spike', 'assets/spike.png');
 }
-
 function create() {
     this.add.image(400, 300, 'bg').setDisplaySize(800, 600);
-
     // Groups
     platformGroup = this.physics.add.staticGroup();
     spikeGroup = this.physics.add.staticGroup();
-
     // Controls
     cursors = this.input.keyboard.createCursorKeys();
     spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-
     // Instructions (Only show on level 1)
     instructionText = this.add.text(16, 16, '', { fontSize: '18px', fill: '#ffffff', stroke: '#000', strokeThickness: 2 });
-
     startLevel(this, currentLevelIndex);
 }
-
 function update() {
     if (isLevelTransitioning) return;
     if (!player || !player.body) return; // Safety check
-
     // Horizontal Movement
     if (cursors.left.isDown) {
         player.setVelocityX(-200);
@@ -114,18 +103,15 @@ function update() {
     } else {
         player.setVelocityX(0);
     }
-
     // Anti-Gravity
     if (Phaser.Input.Keyboard.JustDown(spaceKey)) {
         flipGravity();
     }
-
     // World Bounds Death Check
     if (player.y > 650 || player.y < -50) {
         restartLevel(this.scene);
     }
 }
-
 function flipGravity() {
     isGravityInverted = !isGravityInverted;
     if (isGravityInverted) {
@@ -136,7 +122,6 @@ function flipGravity() {
         player.setFlipY(false);
     }
 }
-
 function startLevel(scene, index) {
     if (index >= levels.length) {
         // Game Over / Win Screen
@@ -144,61 +129,50 @@ function startLevel(scene, index) {
         if (player) player.destroy();
         return;
     }
-
     const levelData = levels[index];
-
     // Reset State
     isGravityInverted = false;
     platformGroup.clear(true, true);
     spikeGroup.clear(true, true);
     if (castle) castle.destroy();
     if (player) player.destroy();
-
     // Create Platforms
     levelData.platforms.forEach(p => {
         for (let i = 0; i < p.count; i++) {
             platformGroup.create(p.x + (i * 32), p.y, 'block').setScale(0.5).refreshBody();
         }
     });
-
     // Create Spikes
     levelData.spikes.forEach(s => {
         spikeGroup.create(s.x, s.y, 'spike').setScale(0.5).refreshBody();
     });
-
     // Create Goal
     castle = scene.physics.add.staticImage(levelData.goal.x, levelData.goal.y, 'castle').setScale(0.5);
     castle.body.setSize(castle.width * 0.5, castle.height * 0.5);
-
     // Create Player
     player = scene.physics.add.sprite(levelData.start.x, levelData.start.y, 'wizard');
     player.setBounce(0.1);
     player.setCollideWorldBounds(false);
     player.setScale(0.5);
     player.body.setSize(player.width * 0.6, player.height * 0.8);
-
     // Collisions
     scene.physics.add.collider(player, platformGroup);
     scene.physics.add.overlap(player, castle, nextLevel, null, scene);
     scene.physics.add.collider(player, spikeGroup, () => restartLevel(scene), null, scene);
-
     // UI Updates
     if (index === 0) {
         instructionText.setText('Arrows to Move\nSPACE to Flip Gravity\nReach the Castle!');
     } else {
         instructionText.setText(`Level ${index + 1}`);
     }
-
     isLevelTransitioning = false;
 }
-
 function restartLevel(scene) {
     if (isLevelTransitioning) return;
     // Simple shake effect
     scene.cameras.main.shake(200, 0.01);
     startLevel(scene, currentLevelIndex);
 }
-
 function nextLevel(player, castle) {
     if (isLevelTransitioning) return;
     isLevelTransitioning = true;
