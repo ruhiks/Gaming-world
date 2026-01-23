@@ -79,7 +79,6 @@ function preload() {
     this.load.image('spike', 'assets/spike.png');
 }
 function create() {
-    this.add.image(400, 300, 'bg').setDisplaySize(800, 600);
     // Groups
     platformGroup = this.physics.add.staticGroup();
     spikeGroup = this.physics.add.staticGroup();
@@ -184,4 +183,5 @@ function nextLevel(player, castle) {
         startLevel(this, currentLevelIndex);
     });
 }
+
 
