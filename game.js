@@ -2,10 +2,11 @@ const config = {
   type: Phaser.AUTO,
   width: 800,
   height: 500,
+  parent: "game-container",
   physics: {
-    default: 'arcade',
+    default: "arcade",
     arcade: {
-      gravity: { y: 600 },
+      gravity: { y: 500 },
       debug: false
     }
   },
@@ -16,115 +17,80 @@ const config = {
   }
 };
 
-new Phaser.Game(config);
+const game = new Phaser.Game(config);
 
 let wizard;
 let platforms;
 let cursors;
-let spaceKey;
-let gravityFlipped = false;
 let gate;
-let finished = false;
+let gravityFlipped = false;
 
 function preload() {
-  this.load.image('wizard', 'assets/wizard.png');
-  this.load.image('block', 'assets/block.png');
-  this.load.image('castle', 'assets/castle.png');
+  this.load.image("wizard", "assets/wizard.png");
+  this.load.image("block", "assets/block.png");
+  this.load.image("castle", "assets/castle.png");
 }
 
 function create() {
-  this.cameras.main.setBackgroundColor('#2b2d5c');
+  // Background color
+  this.cameras.main.setBackgroundColor("#3b3b6d");
 
   // Platforms
   platforms = this.physics.add.staticGroup();
 
-  // Floor
-  for (let i = 0; i < 25; i++) {
-    platforms.create(i * 32, 480, 'block').setOrigin(0, 0).refreshBody();
-  }
-
-  // Ceiling
-  for (let i = 0; i < 25; i++) {
-    platforms.create(i * 32, 0, 'block').setOrigin(0, 0).refreshBody();
-  }
-
-  // Floating platform
-  platforms.create(380, 300, 'block').setScale(3, 1).refreshBody();
+  platforms.create(400, 480, "block").setScale(25, 1).refreshBody(); // floor
+  platforms.create(400, 20, "block").setScale(25, 1).refreshBody();  // ceiling
+  platforms.create(400, 300, "block").setScale(3, 1).refreshBody(); // middle
 
   // Wizard
-  wizard = this.physics.add.sprite(100, 430, 'wizard');
-  wizard.setScale(0.25);
-  wizard.setOrigin(0.5, 1);
+  wizard = this.physics.add.sprite(100, 420, "wizard");
+  wizard.setScale(0.4);
   wizard.setCollideWorldBounds(true);
-  wizard.body.setSize(wizard.width * 0.4, wizard.height * 0.6);
-  wizard.body.setBounce(0.05);
+  wizard.body.setSize(wizard.width * 0.6, wizard.height * 0.8);
 
   // Castle (goal)
-  gate = this.physics.add.staticSprite(700, 430, 'castle');
-  gate.setScale(0.4);
+  gate = this.physics.add.staticImage(700, 430, "castle");
+  gate.setScale(0.6);
 
-  // Physics
+  // Collisions
   this.physics.add.collider(wizard, platforms);
-  this.physics.add.overlap(wizard, gate, reachCastle, null, this);
+  this.physics.add.overlap(wizard, gate, reachGoal, null, this);
 
   // Controls
   cursors = this.input.keyboard.createCursorKeys();
-  spaceKey = this.input.keyboard.addKey(
-    Phaser.Input.Keyboard.KeyCodes.SPACE
-  );
 
-  // Instructions
-  this.add.text(
-    20,
-    20,
-    '← → Move\nSPACE Flip Gravity\n\nReach the castle 🏰',
-    { fontSize: '16px', color: '#ffffff' }
+  // UI text
+  this.add.text(20, 20,
+    "← → Move\nSPACE Flip Gravity\nReach the castle ✨",
+    { fontSize: "16px", fill: "#ffffff" }
   );
 }
 
 function update() {
-  if (finished) return;
-
-  // Horizontal movement (smooth)
   if (cursors.left.isDown) {
     wizard.setVelocityX(-200);
-    wizard.setFlipX(true);
   } else if (cursors.right.isDown) {
     wizard.setVelocityX(200);
-    wizard.setFlipX(false);
   } else {
     wizard.setVelocityX(0);
   }
 
-  // Gravity flip (controlled, no spam)
-  if (Phaser.Input.Keyboard.JustDown(spaceKey)) {
+  if (Phaser.Input.Keyboard.JustDown(cursors.space)) {
     gravityFlipped = !gravityFlipped;
-
-    wizard.body.setGravityY(gravityFlipped ? -1200 : 0);
+    wizard.setGravityY(gravityFlipped ? -1000 : 0);
     wizard.setFlipY(gravityFlipped);
   }
-
-  // Safety reset if falling out
-  if (wizard.y > 550 || wizard.y < -50) {
-    this.scene.restart();
-  }
 }
 
-function reachCastle() {
-  finished = true;
-  this.physics.pause();
-
-  this.add.text(
-    400,
-    250,
-    '✨ You reached the castle ✨\n\nWell done.\nTake a breath.',
-    {
-      fontSize: '28px',
-      color: '#ffffff',
-      align: 'center'
-    }
+function reachGoal() {
+  this.add.text(400, 250, "✨ You made it! ✨",
+    { fontSize: "32px", fill: "#ffd700" }
   ).setOrigin(0.5);
+
+  wizard.setVelocity(0);
+  wizard.body.enable = false;
 }
+
 
 
 
