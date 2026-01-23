@@ -40,7 +40,10 @@ function create() {
   wizard.setCollideWorldBounds(true);
   wizard.setOrigin(0.5, 1); // 👈 feet touch the ground
 
-
+  wizard.body.setSize(
+  wizard.width * 0.4,
+  wizard.height * 0.6
+);
 
   // Magical gate (goal)
   gate = this.add.circle(700, 260, 22, 0xffd700);
@@ -91,6 +94,7 @@ function win() {
     }
   ).setOrigin(0.5);
 }
+
 
 
 
