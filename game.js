@@ -175,10 +175,13 @@ function restartLevel(scene) {
 }
 function nextLevel(player, castle) {
     if (isLevelTransitioning) return;
+
     isLevelTransitioning = true;
     player.setTint(0x00ff00);
+
     this.time.delayedCall(1000, () => {
         currentLevelIndex++;
         startLevel(this, currentLevelIndex);
     });
 }
+
