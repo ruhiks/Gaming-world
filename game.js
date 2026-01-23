@@ -6,8 +6,10 @@ const config = {
   physics: {
     default: "arcade",
     arcade: {
-      gravity: { y: 500 },
-      debug: false
+  gravity: { y: 300 },
+  debug: false
+}
+
     }
   },
   scene: {
@@ -49,6 +51,8 @@ function create() {
   // Puzzle platforms
   platforms.create(300, 300, "block").refreshBody();
   platforms.create(500, 200, "block").refreshBody();
+  platforms.create(420, 380, "block").refreshBody(); // hurdle
+
 
   // Wizard (SMALL + PROPORTIONAL)
   wizard = this.physics.add.sprite(120, 420, "wizard");
@@ -57,8 +61,8 @@ function create() {
   wizard.body.setSize(wizard.width * 0.5, wizard.height * 0.7);
 
   // Castle goal
-  gate = this.physics.add.staticImage(680, 180, "castle");
-  gate.setScale(0.4);
+  gate = this.physics.add.staticImage(680, 360, "castle");
+  gate.setScale(0.7);
 
   this.physics.add.collider(wizard, platforms);
   this.physics.add.overlap(wizard, gate, reachGoal, null, this);
@@ -85,7 +89,7 @@ function update() {
 
   if (Phaser.Input.Keyboard.JustDown(cursors.space)) {
     gravityFlipped = !gravityFlipped;
-    wizard.setGravityY(gravityFlipped ? -600 : 0);
+    wizard.setGravityY(gravityFlipped ? -300 : 0);
     wizard.setFlipY(gravityFlipped);
   }
 }
@@ -103,6 +107,7 @@ function reachGoal() {
   wizard.setVelocity(0);
   wizard.body.enable = false;
 }
+
 
 
 
