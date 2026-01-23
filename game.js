@@ -89,6 +89,21 @@ function update() {
     wizard.setFlipY(gravityFlipped);
   }
 }
+function reachGoal() {
+  this.add.text(
+    400,
+    250,
+    "✨ You did it! ✨",
+    {
+      fontSize: "32px",
+      fill: "#ffd700"
+    }
+  ).setOrigin(0.5);
+
+  wizard.setVelocity(0);
+  wizard.body.enable = false;
+}
+
 
 
 
