@@ -46,8 +46,9 @@ function create() {
 );
 
   // Magical gate (goal)
-  gate = this.add.circle(700, 260, 22, 0xffd700);
-  this.physics.add.existing(gate, true);
+  gate = this.add.rectangle(700, 260, 40, 60, 0xffd700);
+  gate.setStrokeStyle(3, 0xffffff);
+
 
   // Physics
   this.physics.add.collider(wizard, platforms);
@@ -94,6 +95,7 @@ function win() {
     }
   ).setOrigin(0.5);
 }
+
 
 
 
