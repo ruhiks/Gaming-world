@@ -1,4 +1,5 @@
 console.log("CALM WIZARD GAME v1.0 LOADED");
+
 const config = {
   type: Phaser.AUTO,
   width: 800,
@@ -101,6 +102,7 @@ function reachGate() {
     }
   ).setOrigin(0.5);
 }
+
 
 
 
