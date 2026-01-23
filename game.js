@@ -31,6 +31,7 @@ function preload() {
   this.load.image("wizard", "assets/wizard.png");
   this.load.image("block", "assets/block.png");
   this.load.image("castle", "assets/castle.png");
+  this.load.audio("bgm", "assets/music.mp3");
 }
 
 function create() {
@@ -41,6 +42,24 @@ function create() {
   // Floor
   for (let i = 0; i < 10; i++) {
     platforms.create(80 + i * 64, 460, "block").refreshBody();
+    
+    function create() {
+  // existing create code (platforms, wizard, castle, controls)
+
+  this.add.text(
+    20,
+    20,
+    "← → Move\nSPACE Flip Gravity\nReach the castle ✨",
+    { fontSize: "14px", fill: "#ffffff" }
+  );
+
+  const music = this.sound.add("bgm", {
+    loop: true,
+    volume: 0.3
+  });
+  music.play();
+}
+
   }
 
   // Ceiling
@@ -107,6 +126,7 @@ function reachGoal() {
   wizard.setVelocity(0);
   wizard.body.enable = false;
 }
+
 
 
 
