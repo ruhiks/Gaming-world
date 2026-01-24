@@ -1,7 +1,7 @@
 const config = {
   type: Phaser.AUTO,
   width: 800,
-  height: 500,
+  height: 450,
   parent: "game-container",
   physics: {
     default: "arcade",
@@ -15,75 +15,88 @@ const config = {
 
 new Phaser.Game(config);
 
-let wizard, platforms, cursors, castle;
-let gravityFlipped = false;
+let wizard, cursors, castle;
+let pathA, pathB;
+let currentPath = "A";
 let musicStarted = false;
 
 function preload() {
   this.load.image("wizard", "assets/wizard.png");
   this.load.image("block", "assets/block.png");
   this.load.image("castle", "assets/castle.png");
-  this.load.audio("bgm", "assets/music.mp3");
+  this.load.audio("bgm", "assets/music.mp3"); // optional
 }
 
 function create() {
   this.cameras.main.setBackgroundColor("#3b3b6d");
 
-  // MUSIC (starts on first click / key)
+  // Start music on first interaction (browser rule)
   this.input.once("pointerdown", () => startMusic(this));
   this.input.keyboard.once("keydown", () => startMusic(this));
 
-  platforms = this.physics.add.staticGroup();
+  // PATHS
+  pathA = this.physics.add.staticGroup();
+  pathB = this.physics.add.staticGroup();
 
-  // Floor
-  for (let i = 0; i < 12; i++) {
-    platforms.create(60 + i * 64, 470, "block");
+  // Path A (top)
+  for (let i = 0; i < 10; i++) {
+    pathA.create(120 + i * 60, 160, "block");
   }
 
-  // Ceiling
-  for (let i = 0; i < 12; i++) {
-    platforms.create(60 + i * 64, 30, "block");
+  // Path B (bottom)
+  for (let i = 0; i < 10; i++) {
+    pathB.create(120 + i * 60, 300, "block");
   }
 
-  // Puzzle blocks
-  platforms.create(300, 320, "block");
-  platforms.create(460, 220, "block");
-
-  // Wizard (small + controlled)
-  wizard = this.physics.add.sprite(100, 420, "wizard");
+  // Wizard
+  wizard = this.physics.add.sprite(100, 120, "wizard");
   wizard.setScale(0.18);
   wizard.setCollideWorldBounds(true);
   wizard.body.setSize(wizard.width * 0.4, wizard.height * 0.6);
 
   // Castle (goal)
-  castle = this.physics.add.staticImage(700, 180, "castle");
+  castle = this.physics.add.staticImage(720, 230, "castle");
   castle.setScale(0.6);
 
-  this.physics.add.collider(wizard, platforms);
+  // Collisions
+  this.physics.add.collider(wizard, pathA);
   this.physics.add.overlap(wizard, castle, winGame, null, this);
 
   cursors = this.input.keyboard.createCursorKeys();
 
+  // Path switching
+  this.input.keyboard.on("keydown-A", () => switchPath("A"));
+  this.input.keyboard.on("keydown-B", () => switchPath("B"));
+
+  // UI text
   this.add.text(
     20, 20,
-    "← → Move\nSPACE Flip Gravity\nReach the castle ✨",
+    "← → Move\nA / B Choose Path\nReach the castle ✨",
     { fontSize: "14px", fill: "#ffffff" }
   );
 }
 
 function update() {
   if (cursors.left.isDown) {
-    wizard.setVelocityX(-160);
+    wizard.setVelocityX(-150);
   } else if (cursors.right.isDown) {
-    wizard.setVelocityX(160);
+    wizard.setVelocityX(150);
   } else {
     wizard.setVelocityX(0);
   }
+}
 
-  if (Phaser.Input.Keyboard.JustDown(cursors.space)) {
-    gravityFlipped = !gravityFlipped;
-    wizard.setGravityY(gravityFlipped ? -900 : 0);
-    wizard.setFlipY(gravityFlipped);
+function switchPath(path) {
+  if (currentPath === path) return;
+
+  wizard.setVelocity(0);
+
+  if (path === "A") {
+    wizard.y = 120;
+    currentPath = "A";
+  } else {
+    wizard.y = 260;
+    currentPath = "B";
   }
 }
 
@@ -93,20 +106,27 @@ function startMusic(scene) {
 
   const music = scene.sound.add("bgm", {
     loop: true,
-    volume: 0.4
+    volume: 0.35
   });
   music.play();
 }
 
-function winGame(player, castle) {
+function winGame() {
   this.physics.pause();
-  player.setTint(0x00ff99);
 
-  this.add.text(
-    400, 250,
-    "✨ You did it! ✨",
-    { fontSize: "36px", fill: "#ffd700" }
-  ).setOrigin(0.5);
+  this.add.rectangle(400, 225, 800, 450, 0x000000, 0.6);
+
+  this.add.text(400, 200, "🎉 Yeah! You did it! 🎉", {
+    fontSize: "36px",
+    fill: "#ffd700"
+  }).setOrigin(0.5);
+
+  this.add.text(400, 250, "You guided the wizard safely ✨", {
+    fontSize: "18px",
+    fill: "#ffffff"
+  }).setOrigin(0.5);
 }
+
+
 
 
