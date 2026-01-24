@@ -1,86 +1,152 @@
-const config = {
-  type: Phaser.AUTO,
-  width: 800,
-  height: 500,
-  parent: "game-container",
-  physics: {
-    default: "arcade",
-    arcade: {
-      gravity: { y: 0 }, // NO gravity = floating
-      debug: false
+ const config = {
+    type: Phaser.AUTO,
+    width: 800,
+    height: 600,
+    parent: 'game-container',
+    physics: {
+        default: 'arcade',
+        arcade: {
+            gravity: { y: 600 },
+            debug: false
+        }
+    },
+    scene: {
+        preload: preload,
+        create: create,
+        update: update
     }
-  },
-  scene: { preload, create, update }
 };
 
-new Phaser.Game(config);
+const game = new Phaser.Game(config);
 
-let wizard, castle, cursors;
-let speed = 180;
+let player;
+let platformGroup;
+let castle;
+let cursors;
+let spaceKey;
+let isGravityInverted = false;
+let instructionText;
 
 function preload() {
-  this.load.image("wizard", "assets/wizard.png");
-  this.load.image("block", "assets/block.png");
-  this.load.image("castle", "assets/castle.png");
+    this.load.image('bg', 'assets/bg.png');
+    this.load.image('wizard', 'assets/wizard.png');
+    this.load.image('block', 'assets/block.png');
+    this.load.image('castle', 'assets/castle.png');
 }
 
 function create() {
-  this.cameras.main.setBackgroundColor("#3b3b6d");
+    // Background - Fills screen
+    const bg = this.add.image(400, 300, 'bg');
+    bg.setDisplaySize(800, 600);
 
-  // Zig-zag puzzle blocks (visual obstacles)
-  const blocks = this.add.group();
-  blocks.create(200, 400, "block");
-  blocks.create(350, 300, "block");
-  blocks.create(500, 200, "block");
-  blocks.create(650, 300, "block");
+    // Groups
+    platformGroup = this.physics.add.staticGroup();
 
-  // Floating wizard
-  wizard = this.physics.add.sprite(100, 400, "wizard");
-  wizard.setScale(0.18);
-  wizard.setCollideWorldBounds(true);
-  wizard.body.setAllowGravity(false);
+    // Controls
+    cursors = this.input.keyboard.createCursorKeys();
+    spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
-  // Bigger castle (goal)
-  castle = this.physics.add.staticImage(720, 120, "castle");
-  castle.setScale(0.75);
+    // Instructions
+    instructionText = this.add.text(400, 200, 'Arrow Keys to Move\nSPACE to Flip Gravity\n\nReach the Castle', {
+        fontSize: '28px',
+        fill: '#ffffff',
+        align: 'center',
+        fontFamily: '"Segoe UI", Tahoma, sans-serif',
+        stroke: '#272744',
+        strokeThickness: 4
+    }).setOrigin(0.5);
 
-  // Win detection
-  this.physics.add.overlap(wizard, castle, winGame, null, this);
-
-  cursors = this.input.keyboard.createCursorKeys();
-
-  this.add.text(
-    20, 20,
-    "← → ↑ ↓ Float\nReach the castle ✨",
-    { fontSize: "14px", fill: "#ffffff" }
-  );
+    setupLevel();
 }
 
 function update() {
-  wizard.setVelocity(0);
+    if (!player || !player.body) return;
 
-  if (cursors.left.isDown) wizard.setVelocityX(-speed);
-  if (cursors.right.isDown) wizard.setVelocityX(speed);
-  if (cursors.up.isDown) wizard.setVelocityY(-speed);
-  if (cursors.down.isDown) wizard.setVelocityY(speed);
+    // Movement
+    if (cursors.left.isDown) {
+        player.setVelocityX(-200);
+        player.setFlipX(true);
+    } else if (cursors.right.isDown) {
+        player.setVelocityX(200);
+        player.setFlipX(false);
+    } else {
+        player.setVelocityX(0);
+    }
+
+    // Anti-Gravity Input
+    if (Phaser.Input.Keyboard.JustDown(spaceKey)) {
+        flipGravity();
+    }
+
+    // Simple bounds check (wrap around or restart)
+    if (player.y > 650 || player.y < -50) {
+        setupLevel(); // Restart if fell out
+    }
 }
 
-function winGame() {
-  this.physics.pause();
+function flipGravity() {
+    isGravityInverted = !isGravityInverted;
+    if (isGravityInverted) {
+        player.setGravityY(-1200);
+        player.setFlipY(true);
+    } else {
+        player.setGravityY(0);
+        player.setFlipY(false);
+    }
+}
 
-  this.add.rectangle(400, 250, 800, 500, 0x000000, 0.6);
+function setupLevel() {
+    // Reset State
+    isGravityInverted = false;
+    platformGroup.clear(true, true);
+    if (castle) castle.destroy();
+    if (player) player.destroy();
 
-  this.add.text(
-    400, 240,
-    "🎉 Yeah! You did it! 🎉",
-    { fontSize: "36px", fill: "#ffd700" }
-  ).setOrigin(0.5);
+    // -- Level Design --
+    // A simple, symmetrical, calm puzzle.
 
-  this.add.text(
-    400, 290,
-    "The wizard reached the castle ✨",
-    { fontSize: "18px", fill: "#ffffff" }
-  ).setOrigin(0.5);
+    // Floor
+    createRow(0, 568, 25);
+    // Ceiling
+    createRow(0, 32, 25);
+
+    // Middle Barrier - Requires gravity flip to go over/under
+    createRow(350, 568 - 32, 1);
+    createRow(350, 568 - 64, 1);
+    createRow(350, 568 - 96, 1);
+    createRow(350, 568 - 128, 1);
+
+    // Create Goal
+    castle = this.physics.add.staticImage(700, 450, 'castle').setScale(0.5);
+    castle.body.setSize(castle.width * 0.4, castle.height * 0.4);
+    castle.body.setOffset(castle.width * 0.3, castle.height * 0.3);
+
+    // Create Player
+    player = this.physics.add.sprite(100, 450, 'wizard');
+    player.setBounce(0.1);
+    player.setCollideWorldBounds(false);
+    player.setScale(0.35); // Smaller, cute scale
+    player.body.setSize(player.width * 0.5, player.height * 0.7);
+    player.body.setOffset(player.width * 0.25, player.height * 0.15);
+
+    // Collisions
+    this.physics.add.collider(player, platformGroup);
+    this.physics.add.overlap(player, castle, winGame, null, this);
+}
+
+function createRow(x, y, count) {
+    for (let i = 0; i < count; i++) {
+        platformGroup.create(x + (i * 32), y, 'block')
+            .setScale(0.5)
+            .refreshBody(); // Important after scaling static physics objects
+    }
+}
+
+function winGame(player, castle) {
+    this.physics.pause();
+    player.setTint(0xffd700);
+    instructionText.setText('You reached the Castle!\nMagical!');
+    instructionText.setVisible(true);
 }
 
 
