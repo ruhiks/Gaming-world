@@ -6,7 +6,7 @@ const config = {
   physics: {
     default: "arcade",
     arcade: {
-      gravity: { y: 0 }, // 🔑 floating
+      gravity: { y: 0 }, // NO gravity = floating
       debug: false
     }
   },
@@ -15,7 +15,7 @@ const config = {
 
 new Phaser.Game(config);
 
-let wizard, castle, platforms, cursors;
+let wizard, castle, cursors;
 let speed = 180;
 
 function preload() {
@@ -27,32 +27,31 @@ function preload() {
 function create() {
   this.cameras.main.setBackgroundColor("#3b3b6d");
 
-  platforms = this.physics.add.staticGroup();
+  // Zig-zag puzzle blocks (visual obstacles)
+  const blocks = this.add.group();
+  blocks.create(200, 400, "block");
+  blocks.create(350, 300, "block");
+  blocks.create(500, 200, "block");
+  blocks.create(650, 300, "block");
 
-  // ZIG-ZAG PUZZLE BLOCKS
-  platforms.create(200, 400, "block");
-  platforms.create(350, 300, "block");
-  platforms.create(500, 200, "block");
-  platforms.create(650, 300, "block");
-
-  // Wizard (floating)
+  // Floating wizard
   wizard = this.physics.add.sprite(100, 400, "wizard");
   wizard.setScale(0.18);
   wizard.setCollideWorldBounds(true);
   wizard.body.setAllowGravity(false);
 
-  // Castle (bigger goal)
+  // Bigger castle (goal)
   castle = this.physics.add.staticImage(720, 120, "castle");
   castle.setScale(0.75);
 
-  this.physics.add.collider(wizard, platforms);
+  // Win detection
   this.physics.add.overlap(wizard, castle, winGame, null, this);
 
   cursors = this.input.keyboard.createCursorKeys();
 
   this.add.text(
     20, 20,
-    "← → ↑ ↓ Move freely\nReach the castle ✨",
+    "← → ↑ ↓ Float\nReach the castle ✨",
     { fontSize: "14px", fill: "#ffffff" }
   );
 }
@@ -83,6 +82,7 @@ function winGame() {
     { fontSize: "18px", fill: "#ffffff" }
   ).setOrigin(0.5);
 }
+
 
 
 
