@@ -1,157 +1,92 @@
  const config = {
-    type: Phaser.AUTO,
-    width: 800,
-    height: 600,
-    parent: 'game-container',
-    physics: {
-        default: 'arcade',
-        arcade: {
-            gravity: { y: 600 },
-            debug: false
-        }
-    },
-    scene: {
-        preload: preload,
-        create: create,
-        update: update
+  type: Phaser.AUTO,
+  width: 800,
+  height: 500,
+  parent: "game-container",
+  physics: {
+    default: "arcade",
+    arcade: {
+      gravity: { y: 0 }, // 🔑 NO gravity
+      debug: false
     }
+  },
+  scene: { preload, create, update }
 };
 
-const game = new Phaser.Game(config);
+new Phaser.Game(config);
 
-let player;
-let platformGroup;
-let castle;
-let cursors;
-let spaceKey;
-let isGravityInverted = false;
-let instructionText;
+let wizard, castle, cursors;
+let bgm, musicStarted = false;
+const SPEED = 200;
 
 function preload() {
-    this.load.image('bg', 'assets/bg.png');
-    this.load.image('wizard', 'assets/wizard.png');
-    this.load.image('block', 'assets/block.png');
-    this.load.image('castle', 'assets/castle.png');
+  this.load.image("wizard", "assets/wizard.png");
+  this.load.image("block", "assets/block.png");
+  this.load.image("castle", "assets/castle.png");
+  this.load.audio("bgm", "assets/music.mp3");
 }
 
 function create() {
-    // Background - Fills screen
-    const bg = this.add.image(400, 300, 'bg');
-    bg.setDisplaySize(800, 600);
+  this.cameras.main.setBackgroundColor("#3b3b6d");
 
-    // Groups
-    platformGroup = this.physics.add.staticGroup();
+  // ZIG-ZAG VISUAL PUZZLE (no collision)
+  this.add.image(250, 380, "block");
+  this.add.image(400, 280, "block");
+  this.add.image(550, 180, "block");
+  this.add.image(650, 260, "block");
 
-    // Controls
-    cursors = this.input.keyboard.createCursorKeys();
-    spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+  // WIZARD (FLOATING)
+  wizard = this.physics.add.sprite(100, 400, "wizard");
+  wizard.setScale(0.2);
+  wizard.setCollideWorldBounds(true);
+  wizard.body.setAllowGravity(false);
 
-    // Instructions
-    instructionText = this.add.text(400, 200, 'Arrow Keys to Move\nSPACE to Flip Gravity\n\nReach the Castle', {
-        fontSize: '28px',
-        fill: '#ffffff',
-        align: 'center',
-        fontFamily: '"Segoe UI", Tahoma, sans-serif',
-        stroke: '#272744',
-        strokeThickness: 4
-    }).setOrigin(0.5);
+  // CASTLE (BIG GOAL)
+  castle = this.physics.add.staticImage(720, 140, "castle");
+  castle.setScale(0.8);
 
-    setupLevel();
+  // WIN CONDITION
+  this.physics.add.overlap(wizard, castle, winGame, null, this);
+
+  cursors = this.input.keyboard.createCursorKeys();
+
+  // MUSIC — start only after first input (REQUIRED)
+  bgm = this.sound.add("bgm", { loop: true, volume: 0.4 });
+
+  this.input.keyboard.once("keydown", () => {
+    bgm.play();
+    musicStarted = true;
+  });
+
+  this.add.text(
+    20, 20,
+    "← → ↑ ↓ Float freely\nReach the castle ✨",
+    { fontSize: "14px", fill: "#ffffff" }
+  );
 }
 
 function update() {
-    if (!player || !player.body) return;
+  wizard.setVelocity(0);
 
-    // Movement
-    if (cursors.left.isDown) {
-        player.setVelocityX(-200);
-        player.setFlipX(true);
-    } else if (cursors.right.isDown) {
-        player.setVelocityX(200);
-        player.setFlipX(false);
-    } else {
-        player.setVelocityX(0);
-    }
-
-    // Anti-Gravity Input
-    if (Phaser.Input.Keyboard.JustDown(spaceKey)) {
-        flipGravity();
-    }
-
-    // Simple bounds check (wrap around or restart)
-    if (player.y > 650 || player.y < -50) {
-        setupLevel(); // Restart if fell out
-    }
+  if (cursors.left.isDown)  wizard.setVelocityX(-SPEED);
+  if (cursors.right.isDown) wizard.setVelocityX(SPEED);
+  if (cursors.up.isDown)    wizard.setVelocityY(-SPEED);
+  if (cursors.down.isDown)  wizard.setVelocityY(SPEED);
 }
 
-function flipGravity() {
-    isGravityInverted = !isGravityInverted;
-    if (isGravityInverted) {
-        player.setGravityY(-1200);
-        player.setFlipY(true);
-    } else {
-        player.setGravityY(0);
-        player.setFlipY(false);
-    }
+function winGame() {
+  this.physics.pause();
+  if (bgm && bgm.isPlaying) bgm.stop();
+
+  this.add.rectangle(400, 250, 800, 500, 0x000000, 0.6);
+
+  this.add.text(400, 240, "🎉 Yeah! You did it! 🎉", {
+    fontSize: "36px",
+    fill: "#ffd700"
+  }).setOrigin(0.5);
+
+  this.add.text(400, 290, "The wizard reached the castle ✨", {
+    fontSize: "18px",
+    fill: "#ffffff"
+  }).setOrigin(0.5);
 }
-
-function setupLevel() {
-    // Reset State
-    isGravityInverted = false;
-    platformGroup.clear(true, true);
-    if (castle) castle.destroy();
-    if (player) player.destroy();
-
-    // -- Level Design --
-    // A simple, symmetrical, calm puzzle.
-
-    // Floor
-    createRow(0, 568, 25);
-    // Ceiling
-    createRow(0, 32, 25);
-
-    // Middle Barrier - Requires gravity flip to go over/under
-    createRow(350, 568 - 32, 1);
-    createRow(350, 568 - 64, 1);
-    createRow(350, 568 - 96, 1);
-    createRow(350, 568 - 128, 1);
-
-    // Create Goal
-    castle = this.physics.add.staticImage(700, 450, 'castle').setScale(0.5);
-    castle.body.setSize(castle.width * 0.4, castle.height * 0.4);
-    castle.body.setOffset(castle.width * 0.3, castle.height * 0.3);
-
-    // Create Player
-    player = this.physics.add.sprite(100, 450, 'wizard');
-    player.setBounce(0.1);
-    player.setCollideWorldBounds(false);
-    player.setScale(0.35); // Smaller, cute scale
-    player.body.setSize(player.width * 0.5, player.height * 0.7);
-    player.body.setOffset(player.width * 0.25, player.height * 0.15);
-
-    // Collisions
-    this.physics.add.collider(player, platformGroup);
-    this.physics.add.overlap(player, castle, winGame, null, this);
-}
-
-function createRow(x, y, count) {
-    for (let i = 0; i < count; i++) {
-        platformGroup.create(x + (i * 32), y, 'block')
-            .setScale(0.5)
-            .refreshBody(); // Important after scaling static physics objects
-    }
-}
-
-function winGame(player, castle) {
-    this.physics.pause();
-    player.setTint(0xffd700);
-    instructionText.setText('You reached the Castle!\nMagical!');
-    instructionText.setVisible(true);
-}
-
-
-
-
-
-
-
