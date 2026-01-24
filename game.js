@@ -5,93 +5,94 @@ const config = {
   parent: "game-container",
   physics: {
     default: "arcade",
-    arcade: {
-      gravity: { y: 0 }, // ❌ NO GRAVITY
-      debug: false
-    }
+    arcade: { gravity: { y: 400 }, debug: false }
   },
   scene: { preload, create, update }
 };
 
 new Phaser.Game(config);
 
-let wizard, platforms, castle, cursors, winText;
+let wizard, platforms, castle, cursors, music;
+let gravityFlipped = false;
 let won = false;
 
 function preload() {
   this.load.image("wizard", "assets/wizard.png");
   this.load.image("block", "assets/block.png");
   this.load.image("castle", "assets/castle.png");
+  this.load.audio("music", "assets/music.mp3");
 }
 
 function create() {
   this.cameras.main.setBackgroundColor("#3b3b6d");
 
-  // Platforms (PUZZLE PATH)
+  // Music (starts after first input – browser rule)
+  music = this.sound.add("music", { loop: true, volume: 0.4 });
+  this.input.once("pointerdown", () => music.play());
+
   platforms = this.physics.add.staticGroup();
 
-  platforms.create(200, 380, "block");
-  platforms.create(280, 320, "block");
-  platforms.create(360, 260, "block");
-  platforms.create(440, 320, "block");
-  platforms.create(520, 260, "block");
-  platforms.create(600, 200, "block");
+  // Zig-zag puzzle path
+  platforms.create(200, 420, "block");
+  platforms.create(300, 360, "block");
+  platforms.create(400, 300, "block");
+  platforms.create(500, 360, "block");
+  platforms.create(600, 300, "block");
 
-  // Wizard (FLOATING)
-  wizard = this.physics.add.sprite(120, 420, "wizard");
+  // Wizard
+  wizard = this.physics.add.sprite(120, 440, "wizard");
   wizard.setScale(0.2);
-  wizard.body.setAllowGravity(false);
   wizard.setCollideWorldBounds(true);
 
-  // Castle (GOAL)
-  castle = this.physics.add.staticImage(680, 160, "castle");
+  // Castle
+  castle = this.physics.add.staticImage(680, 220, "castle");
   castle.setScale(0.6);
 
-  // Collisions
   this.physics.add.collider(wizard, platforms);
   this.physics.add.overlap(wizard, castle, winGame, null, this);
 
   cursors = this.input.keyboard.createCursorKeys();
 
-  // Instructions
   this.add.text(
-    20,
-    20,
-    "Arrow Keys → Float freely\nFollow the path to the castle ✨",
-    { fontSize: "16px", fill: "#ffffff" }
+    20, 20,
+    "← → Move\nSPACE Flip Gravity\nReach the Castle ✨",
+    { fontSize: "16px", fill: "#fff" }
   );
-
-  // Win text
-  winText = this.add.text(
-    400,
-    250,
-    "🎉 Yeah! You did it! 🎉",
-    { fontSize: "34px", fill: "#ffd700" }
-  );
-  winText.setOrigin(0.5);
-  winText.setVisible(false);
 }
 
 function update() {
-  if (won) {
-    wizard.setVelocity(0);
-    return;
+  if (won) return;
+
+  wizard.setVelocityX(0);
+
+  if (cursors.left.isDown) wizard.setVelocityX(-160);
+  if (cursors.right.isDown) wizard.setVelocityX(160);
+
+  // Anti-gravity flip
+  if (Phaser.Input.Keyboard.JustDown(cursors.space)) {
+    gravityFlipped = !gravityFlipped;
+    wizard.setGravityY(gravityFlipped ? -800 : 0);
+    wizard.setFlipY(gravityFlipped);
   }
-
-  const speed = 150;
-
-  wizard.setVelocity(0);
-
-  if (cursors.left.isDown) wizard.setVelocityX(-speed);
-  if (cursors.right.isDown) wizard.setVelocityX(speed);
-  if (cursors.up.isDown) wizard.setVelocityY(-speed);
-  if (cursors.down.isDown) wizard.setVelocityY(speed);
 }
 
 function winGame() {
+  if (won) return;
   won = true;
-  winText.setVisible(true);
+
+  wizard.setVelocity(0);
+  wizard.setGravityY(600);     // restore gravity
+  wizard.setFlipY(false);
+  wizard.setVelocityY(-300);   // 🎉 jump
+
+  const text = wizard.scene.add.text(
+    400, 250,
+    "🎉 Yeah! You did it! 🎉",
+    { fontSize: "36px", fill: "#ffd700" }
+  );
+  text.setOrigin(0.5);
 }
+
 
 
 
