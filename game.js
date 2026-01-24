@@ -3,18 +3,14 @@ const config = {
   width: 800,
   height: 500,
   parent: "game-container",
-  physics: {
-    default: "arcade",
-    arcade: { gravity: { y: 400 }, debug: false }
-  },
   scene: { preload, create, update }
 };
 
 new Phaser.Game(config);
 
-let wizard, platforms, castle, cursors, music;
-let gravityFlipped = false;
+let wizard, castle, cursors, music;
 let won = false;
+let speed = 160;
 
 function preload() {
   this.load.image("wizard", "assets/wizard.png");
@@ -26,72 +22,86 @@ function preload() {
 function create() {
   this.cameras.main.setBackgroundColor("#3b3b6d");
 
-  // Music (starts after first input – browser rule)
+  // 🎵 MUSIC (starts after first input)
   music = this.sound.add("music", { loop: true, volume: 0.4 });
   this.input.once("pointerdown", () => music.play());
 
-  platforms = this.physics.add.staticGroup();
+  // 🧩 ZIG-ZAG PUZZLE WALLS (visual maze)
+  this.add.image(220, 420, "block");
+  this.add.image(300, 360, "block");
+  this.add.image(380, 420, "block");
+  this.add.image(460, 300, "block");
+  this.add.image(540, 360, "block");
+  this.add.image(620, 260, "block");
 
-  // Zig-zag puzzle path
-  platforms.create(200, 420, "block");
-  platforms.create(300, 360, "block");
-  platforms.create(400, 300, "block");
-  platforms.create(500, 360, "block");
-  platforms.create(600, 300, "block");
-
-  // Wizard
-  wizard = this.physics.add.sprite(120, 440, "wizard");
+  // 🧙 WIZARD (PURE FLOATING)
+  wizard = this.add.image(100, 420, "wizard");
   wizard.setScale(0.2);
-  wizard.setCollideWorldBounds(true);
 
-  // Castle
-  castle = this.physics.add.staticImage(680, 220, "castle");
-  castle.setScale(0.6);
-
-  this.physics.add.collider(wizard, platforms);
-  this.physics.add.overlap(wizard, castle, winGame, null, this);
+  // 🏰 CASTLE (GOAL)
+  castle = this.add.image(720, 140, "castle");
+  castle.setScale(0.7);
 
   cursors = this.input.keyboard.createCursorKeys();
 
   this.add.text(
-    20, 20,
-    "← → Move\nSPACE Flip Gravity\nReach the Castle ✨",
-    { fontSize: "16px", fill: "#fff" }
+    20,
+    20,
+    "← → ↑ ↓ Float freely\nFind the path to the castle ✨",
+    { fontSize: "15px", fill: "#ffffff" }
   );
 }
 
 function update() {
   if (won) return;
 
-  wizard.setVelocityX(0);
+  // FLOATING MOVEMENT
+  if (cursors.left.isDown) wizard.x -= speed * 0.016;
+  if (cursors.right.isDown) wizard.x += speed * 0.016;
+  if (cursors.up.isDown) wizard.y -= speed * 0.016;
+  if (cursors.down.isDown) wizard.y += speed * 0.016;
 
-  if (cursors.left.isDown) wizard.setVelocityX(-160);
-  if (cursors.right.isDown) wizard.setVelocityX(160);
+  // WIN CHECK (manual distance check)
+  const distance = Phaser.Math.Distance.Between(
+    wizard.x, wizard.y,
+    castle.x, castle.y
+  );
 
-  // Anti-gravity flip
-  if (Phaser.Input.Keyboard.JustDown(cursors.space)) {
-    gravityFlipped = !gravityFlipped;
-    wizard.setGravityY(gravityFlipped ? -800 : 0);
-    wizard.setFlipY(gravityFlipped);
+  if (distance < 60) {
+    winGame();
   }
 }
 
 function winGame() {
-  if (won) return;
   won = true;
 
-  wizard.setVelocity(0);
-  wizard.setGravityY(600);     // restore gravity
-  wizard.setFlipY(false);
-  wizard.setVelocityY(-300);   // 🎉 jump
+  // 🎉 CELEBRATION JUMP
+  wizard.scene.tweens.add({
+    targets: wizard,
+    y: wizard.y - 40,
+    duration: 250,
+    yoyo: true,
+    repeat: 3,
+    ease: "Power1"
+  });
 
-  const text = wizard.scene.add.text(
-    400, 250,
+  wizard.scene.add.rectangle(400, 250, 800, 500, 0x000000, 0.6);
+
+  wizard.scene.add.text(
+    400,
+    240,
     "🎉 Yeah! You did it! 🎉",
     { fontSize: "36px", fill: "#ffd700" }
-  );
-  text.setOrigin(0.5);
+  ).setOrigin(0.5);
+
+  wizard.scene.add.text(
+    400,
+    285,
+    "The wizard reached the castle ✨",
+    { fontSize: "18px", fill: "#ffffff" }
+  ).setOrigin(0.5);
 }
+
 
 
 
