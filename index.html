@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Anti-Gravity Wizard (Test)</title>
+  <meta charset="UTF-8" />
+  <title>Calm Wizard Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- Phaser -->
   <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
@@ -10,22 +11,25 @@
   <style>
     body {
       margin: 0;
-      background: #1f1f3a;
+      background: #272744;
       display: flex;
       justify-content: center;
       align-items: center;
       height: 100vh;
     }
+    #game-container {
+      border-radius: 12px;
+      overflow: hidden;
+    }
   </style>
 </head>
-
 <body>
-  <script src="game.js"></script>
+  <div id="game-container"></div>
+
+  <!-- IMPORTANT: cache-buster -->
+  <script src="game.js?v=1"></script>
 </body>
 </html>
-
-
-
 
 
 
