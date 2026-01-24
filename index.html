@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Wizard Puzzle</title>
+  <meta charset="UTF-8" />
+  <title>Wizard Castle Puzzle</title>
+
   <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
+
   <style>
     body {
       margin: 0;
@@ -13,15 +15,21 @@
       align-items: center;
       height: 100vh;
     }
+    #game-container {
+      border-radius: 14px;
+      overflow: hidden;
+    }
   </style>
 </head>
 <body>
-  <div id="game-container"></div>
-  <script src="game.js"></script>
+
+<div id="game-container"></div>
+
+<!-- cache buster -->
+<script src="game.js?v=FINAL"></script>
+
 </body>
 </html>
-
-
 
 
 
