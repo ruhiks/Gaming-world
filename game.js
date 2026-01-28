@@ -6,7 +6,7 @@ const config = {
   physics: {
     default: "arcade",
     arcade: {
-      gravity: { y: 0 }, // FLOATING
+      gravity: { y: 0 },
       debug: false
     }
   },
@@ -15,9 +15,22 @@ const config = {
 
 new Phaser.Game(config);
 
-let wizard, walls, castle, cursors, music;
+const TILE_SIZE = 80;
+const OFFSET_X = 80;
+const OFFSET_Y = 60;
+
+let wizard, castle, walls, cursors, music;
 let won = false;
-const SPEED = 180;
+
+// 🗺️ MAZE DATA (YOUR DESIGN)
+const maze = [
+  ["S","░","▓","▓","░","░","░","░"],
+  ["▓","░","▓","░","░","▓","▓","░"],
+  ["▓","░","░","░","▓","░","░","░"],
+  ["▓","▓","▓","░","▓","░","▓","░"],
+  ["░","░","░","░","░","░","▓","░"],
+  ["▓","▓","▓","▓","▓","░","░","C"]
+];
 
 function preload() {
   this.load.image("wizard", "assets/wizard.png");
@@ -37,27 +50,34 @@ function create() {
   this.input.once("pointerdown", startMusic);
   this.input.keyboard.once("keydown", startMusic);
 
-  // 🧱 MAZE WALLS (REAL COLLISIONS)
   walls = this.physics.add.staticGroup();
 
-  walls.create(220, 420, "block");
-  walls.create(300, 360, "block");
-  walls.create(380, 420, "block");
-  walls.create(460, 300, "block");
-  walls.create(540, 360, "block");
-  walls.create(620, 260, "block");
+  // 🧩 BUILD MAZE
+  for (let row = 0; row < maze.length; row++) {
+    for (let col = 0; col < maze[row].length; col++) {
+      const cell = maze[row][col];
+      const x = OFFSET_X + col * TILE_SIZE;
+      const y = OFFSET_Y + row * TILE_SIZE;
 
-  // 🧙 WIZARD (PHYSICS-BASED FLOATING)
-  wizard = this.physics.add.sprite(100, 420, "wizard");
-  wizard.setScale(0.2);
-  wizard.setCollideWorldBounds(true);
-  wizard.body.setAllowGravity(false);
-  wizard.setDrag(600);          // smooth stopping
-  wizard.setMaxVelocity(200);   // controlled speed
+      if (cell === "▓") {
+        walls.create(x, y, "block");
+      }
 
-  // 🏰 CASTLE (GOAL)
-  castle = this.physics.add.staticImage(720, 140, "castle");
-  castle.setScale(0.75);
+      if (cell === "S") {
+        wizard = this.physics.add.sprite(x, y, "wizard");
+        wizard.setScale(0.2);
+        wizard.body.setAllowGravity(false);
+        wizard.setCollideWorldBounds(true);
+        wizard.setDrag(600);
+        wizard.setMaxVelocity(200);
+      }
+
+      if (cell === "C") {
+        castle = this.physics.add.staticImage(x, y, "castle");
+        castle.setScale(0.7);
+      }
+    }
+  }
 
   // Collisions
   this.physics.add.collider(wizard, walls);
@@ -68,7 +88,7 @@ function create() {
   this.add.text(
     20,
     20,
-    "← → ↑ ↓ Float through the maze\nFind the path to the castle ✨",
+    "← → ↑ ↓ Float through the maze\nFind the castle ✨",
     { fontSize: "15px", fill: "#ffffff" }
   );
 }
@@ -76,9 +96,9 @@ function create() {
 function update() {
   if (won) return;
 
-  // RESET velocity each frame
   wizard.setVelocity(0);
 
+  const SPEED = 180;
   if (cursors.left.isDown) wizard.setVelocityX(-SPEED);
   if (cursors.right.isDown) wizard.setVelocityX(SPEED);
   if (cursors.up.isDown) wizard.setVelocityY(-SPEED);
@@ -91,7 +111,7 @@ function winGame() {
 
   wizard.setVelocity(0);
 
-  // 🎉 Victory jump animation
+  // 🎉 Celebration jump
   wizard.scene.tweens.add({
     targets: wizard,
     y: wizard.y - 40,
@@ -117,6 +137,7 @@ function winGame() {
     { fontSize: "18px", fill: "#ffffff" }
   ).setOrigin(0.5);
 }
+
 
 
 
