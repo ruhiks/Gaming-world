@@ -68,8 +68,7 @@ function create() {
         wizard.setScale(0.2);
         wizard.body.setAllowGravity(false);
         wizard.setCollideWorldBounds(true);
-        wizard.setDrag(600);
-        wizard.setMaxVelocity(200);
+        
       }
 
       if (cell === "C") {
@@ -144,6 +143,7 @@ function winGame() {
     { fontSize: "18px", fill: "#ffffff" }
   ).setOrigin(0.5);
 }
+
 
 
 
