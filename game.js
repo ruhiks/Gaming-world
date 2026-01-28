@@ -6,7 +6,7 @@ const config = {
   physics: {
     default: "arcade",
     arcade: {
-      gravity: { y: 0 }, // floating
+      gravity: { y: 0 }, // FLOATING
       debug: false
     }
   },
@@ -15,9 +15,9 @@ const config = {
 
 new Phaser.Game(config);
 
-let wizard, castle, cursors, walls, music;
+let wizard, walls, castle, cursors, music;
 let won = false;
-const SPEED = 160;
+const SPEED = 180;
 
 function preload() {
   this.load.image("wizard", "assets/wizard.png");
@@ -37,24 +37,23 @@ function create() {
   this.input.once("pointerdown", startMusic);
   this.input.keyboard.once("keydown", startMusic);
 
-  // 🧱 MAZE WALLS (REAL OBSTACLES)
+  // 🧱 MAZE WALLS (REAL COLLISIONS)
   walls = this.physics.add.staticGroup();
 
-  // Zig-zag maze layout
-  walls.create(200, 420, "block");
-  walls.create(260, 360, "block");
-  walls.create(320, 420, "block");
-  walls.create(380, 300, "block");
-  walls.create(440, 360, "block");
-  walls.create(500, 260, "block");
-  walls.create(560, 320, "block");
-  walls.create(620, 220, "block");
+  walls.create(220, 420, "block");
+  walls.create(300, 360, "block");
+  walls.create(380, 420, "block");
+  walls.create(460, 300, "block");
+  walls.create(540, 360, "block");
+  walls.create(620, 260, "block");
 
-  // 🧙 WIZARD (FLOATING + COLLISION)
+  // 🧙 WIZARD (PHYSICS-BASED FLOATING)
   wizard = this.physics.add.sprite(100, 420, "wizard");
   wizard.setScale(0.2);
   wizard.setCollideWorldBounds(true);
   wizard.body.setAllowGravity(false);
+  wizard.setDrag(600);          // smooth stopping
+  wizard.setMaxVelocity(200);   // controlled speed
 
   // 🏰 CASTLE (GOAL)
   castle = this.physics.add.staticImage(720, 140, "castle");
@@ -66,11 +65,10 @@ function create() {
 
   cursors = this.input.keyboard.createCursorKeys();
 
-  // UI
   this.add.text(
     20,
     20,
-    "← → ↑ ↓ Float through the maze\nFind the correct path ✨",
+    "← → ↑ ↓ Float through the maze\nFind the path to the castle ✨",
     { fontSize: "15px", fill: "#ffffff" }
   );
 }
@@ -78,6 +76,7 @@ function create() {
 function update() {
   if (won) return;
 
+  // RESET velocity each frame
   wizard.setVelocity(0);
 
   if (cursors.left.isDown) wizard.setVelocityX(-SPEED);
@@ -87,11 +86,12 @@ function update() {
 }
 
 function winGame() {
+  if (won) return;
   won = true;
 
   wizard.setVelocity(0);
 
-  // 🎉 Victory jump
+  // 🎉 Victory jump animation
   wizard.scene.tweens.add({
     targets: wizard,
     y: wizard.y - 40,
@@ -101,7 +101,6 @@ function winGame() {
     ease: "Power1"
   });
 
-  // Fade overlay
   wizard.scene.add.rectangle(400, 250, 800, 500, 0x000000, 0.55);
 
   wizard.scene.add.text(
