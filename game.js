@@ -10,7 +10,7 @@ new Phaser.Game(config);
 
 let wizard, castle, cursors, music;
 let won = false;
-let speed = 160;
+const SPEED = 2.5;
 
 function preload() {
   this.load.image("wizard", "assets/wizard.png");
@@ -20,23 +20,18 @@ function preload() {
 }
 
 function create() {
-  function create() {
   this.cameras.main.setBackgroundColor("#3b3b6d");
 
-  // 🎵 MUSIC (browser-safe)
+  // 🎵 MUSIC (browser-safe: click OR key)
   music = this.sound.add("music", { loop: true, volume: 0.4 });
 
   const startMusic = () => {
-    if (!music.isPlaying) {
-      music.play();
-    }
+    if (!music.isPlaying) music.play();
   };
-
-  // allow BOTH mouse + keyboard
   this.input.once("pointerdown", startMusic);
   this.input.keyboard.once("keydown", startMusic);
 
-  // 🧩 ZIG-ZAG PUZZLE WALLS (visual maze)
+  // 🧩 ZIG-ZAG PUZZLE PATH (visual guidance)
   this.add.image(220, 420, "block");
   this.add.image(300, 360, "block");
   this.add.image(380, 420, "block");
@@ -44,7 +39,7 @@ function create() {
   this.add.image(540, 360, "block");
   this.add.image(620, 260, "block");
 
-  // 🧙 WIZARD (PURE FLOATING)
+  // 🧙 WIZARD (PURE FLOATING — NO PHYSICS)
   wizard = this.add.image(100, 420, "wizard");
   wizard.setScale(0.2);
 
@@ -54,10 +49,11 @@ function create() {
 
   cursors = this.input.keyboard.createCursorKeys();
 
+  // Instructions
   this.add.text(
     20,
     20,
-    "← → ↑ ↓ Float freely\nClick or press a key to start music 🎵",
+    "← → ↑ ↓ Float freely\nReach the castle ✨\n(click or press a key for music)",
     { fontSize: "15px", fill: "#ffffff" }
   );
 }
@@ -65,19 +61,19 @@ function create() {
 function update() {
   if (won) return;
 
-  // FLOATING MOVEMENT
-  if (cursors.left.isDown) wizard.x -= speed * 0.016;
-  if (cursors.right.isDown) wizard.x += speed * 0.016;
-  if (cursors.up.isDown) wizard.y -= speed * 0.016;
-  if (cursors.down.isDown) wizard.y += speed * 0.016;
+  // ✅ GUARANTEED FLOATING MOVEMENT
+  if (cursors.left.isDown) wizard.x -= SPEED;
+  if (cursors.right.isDown) wizard.x += SPEED;
+  if (cursors.up.isDown) wizard.y -= SPEED;
+  if (cursors.down.isDown) wizard.y += SPEED;
 
-  // WIN CHECK (manual distance check)
-  const distance = Phaser.Math.Distance.Between(
+  // Win check (distance-based, very safe)
+  const d = Phaser.Math.Distance.Between(
     wizard.x, wizard.y,
     castle.x, castle.y
   );
 
-  if (distance < 60) {
+  if (d < 50) {
     winGame();
   }
 }
@@ -85,13 +81,13 @@ function update() {
 function winGame() {
   won = true;
 
-  // 🎉 CELEBRATION JUMP
+  // 🎉 Celebration jump
   wizard.scene.tweens.add({
     targets: wizard,
     y: wizard.y - 40,
-    duration: 250,
+    duration: 200,
     yoyo: true,
-    repeat: 3,
+    repeat: 4,
     ease: "Power1"
   });
 
@@ -107,10 +103,12 @@ function winGame() {
   wizard.scene.add.text(
     400,
     285,
-    "The wizard reached the castle ✨",
+    "You guided the wizard safely ✨",
     { fontSize: "18px", fill: "#ffffff" }
   ).setOrigin(0.5);
 }
+
+
 
 
 
