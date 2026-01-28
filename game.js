@@ -3,14 +3,21 @@ const config = {
   width: 800,
   height: 500,
   parent: "game-container",
+  physics: {
+    default: "arcade",
+    arcade: {
+      gravity: { y: 0 }, // floating
+      debug: false
+    }
+  },
   scene: { preload, create, update }
 };
 
 new Phaser.Game(config);
 
-let wizard, castle, cursors, music;
+let wizard, castle, cursors, walls, music;
 let won = false;
-const SPEED = 2.5;
+const SPEED = 160;
 
 function preload() {
   this.load.image("wizard", "assets/wizard.png");
@@ -20,40 +27,50 @@ function preload() {
 }
 
 function create() {
-  this.cameras.main.setBackgroundColor("#3b3b6d");
+  this.cameras.main.setBackgroundColor("#2e2f5e");
 
-  // 🎵 MUSIC (browser-safe: click OR key)
-  music = this.sound.add("music", { loop: true, volume: 0.4 });
-
+  // 🎵 MUSIC (safe start)
+  music = this.sound.add("music", { loop: true, volume: 0.35 });
   const startMusic = () => {
     if (!music.isPlaying) music.play();
   };
   this.input.once("pointerdown", startMusic);
   this.input.keyboard.once("keydown", startMusic);
 
-  // 🧩 ZIG-ZAG PUZZLE PATH (visual guidance)
-  this.add.image(220, 420, "block");
-  this.add.image(300, 360, "block");
-  this.add.image(380, 420, "block");
-  this.add.image(460, 300, "block");
-  this.add.image(540, 360, "block");
-  this.add.image(620, 260, "block");
+  // 🧱 MAZE WALLS (REAL OBSTACLES)
+  walls = this.physics.add.staticGroup();
 
-  // 🧙 WIZARD (PURE FLOATING — NO PHYSICS)
-  wizard = this.add.image(100, 420, "wizard");
+  // Zig-zag maze layout
+  walls.create(200, 420, "block");
+  walls.create(260, 360, "block");
+  walls.create(320, 420, "block");
+  walls.create(380, 300, "block");
+  walls.create(440, 360, "block");
+  walls.create(500, 260, "block");
+  walls.create(560, 320, "block");
+  walls.create(620, 220, "block");
+
+  // 🧙 WIZARD (FLOATING + COLLISION)
+  wizard = this.physics.add.sprite(100, 420, "wizard");
   wizard.setScale(0.2);
+  wizard.setCollideWorldBounds(true);
+  wizard.body.setAllowGravity(false);
 
   // 🏰 CASTLE (GOAL)
-  castle = this.add.image(720, 140, "castle");
-  castle.setScale(0.7);
+  castle = this.physics.add.staticImage(720, 140, "castle");
+  castle.setScale(0.75);
+
+  // Collisions
+  this.physics.add.collider(wizard, walls);
+  this.physics.add.overlap(wizard, castle, winGame, null, this);
 
   cursors = this.input.keyboard.createCursorKeys();
 
-  // Instructions
+  // UI
   this.add.text(
     20,
     20,
-    "← → ↑ ↓ Float freely\nReach the castle ✨\n(click or press a key for music)",
+    "← → ↑ ↓ Float through the maze\nFind the correct path ✨",
     { fontSize: "15px", fill: "#ffffff" }
   );
 }
@@ -61,52 +78,48 @@ function create() {
 function update() {
   if (won) return;
 
-  // ✅ GUARANTEED FLOATING MOVEMENT
-  if (cursors.left.isDown) wizard.x -= SPEED;
-  if (cursors.right.isDown) wizard.x += SPEED;
-  if (cursors.up.isDown) wizard.y -= SPEED;
-  if (cursors.down.isDown) wizard.y += SPEED;
+  wizard.setVelocity(0);
 
-  // Win check (distance-based, very safe)
-  const d = Phaser.Math.Distance.Between(
-    wizard.x, wizard.y,
-    castle.x, castle.y
-  );
-
-  if (d < 50) {
-    winGame();
-  }
+  if (cursors.left.isDown) wizard.setVelocityX(-SPEED);
+  if (cursors.right.isDown) wizard.setVelocityX(SPEED);
+  if (cursors.up.isDown) wizard.setVelocityY(-SPEED);
+  if (cursors.down.isDown) wizard.setVelocityY(SPEED);
 }
 
 function winGame() {
   won = true;
 
-  // 🎉 Celebration jump
+  wizard.setVelocity(0);
+
+  // 🎉 Victory jump
   wizard.scene.tweens.add({
     targets: wizard,
     y: wizard.y - 40,
     duration: 200,
     yoyo: true,
-    repeat: 4,
+    repeat: 3,
     ease: "Power1"
   });
 
-  wizard.scene.add.rectangle(400, 250, 800, 500, 0x000000, 0.6);
+  // Fade overlay
+  wizard.scene.add.rectangle(400, 250, 800, 500, 0x000000, 0.55);
 
   wizard.scene.add.text(
     400,
-    240,
+    230,
     "🎉 Yeah! You did it! 🎉",
     { fontSize: "36px", fill: "#ffd700" }
   ).setOrigin(0.5);
 
   wizard.scene.add.text(
     400,
-    285,
-    "You guided the wizard safely ✨",
+    280,
+    "You solved the maze ✨",
     { fontSize: "18px", fill: "#ffffff" }
   ).setOrigin(0.5);
 }
+
+
 
 
 
