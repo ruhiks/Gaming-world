@@ -94,16 +94,23 @@ function create() {
 }
 
 function update() {
+  function update() {
   if (won) return;
 
-  wizard.setVelocity(0);
-
   const SPEED = 180;
-  if (cursors.left.isDown) wizard.setVelocityX(-SPEED);
-  if (cursors.right.isDown) wizard.setVelocityX(SPEED);
-  if (cursors.up.isDown) wizard.setVelocityY(-SPEED);
-  if (cursors.down.isDown) wizard.setVelocityY(SPEED);
+
+  let vx = 0;
+  let vy = 0;
+
+  if (cursors.left.isDown)  vx = -SPEED;
+  else if (cursors.right.isDown) vx = SPEED;
+
+  if (cursors.up.isDown)    vy = -SPEED;
+  else if (cursors.down.isDown) vy = SPEED;
+
+  wizard.setVelocity(vx, vy);
 }
+
 
 function winGame() {
   if (won) return;
@@ -137,6 +144,7 @@ function winGame() {
     { fontSize: "18px", fill: "#ffffff" }
   ).setOrigin(0.5);
 }
+
 
 
 
