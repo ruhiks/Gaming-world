@@ -20,11 +20,21 @@ function preload() {
 }
 
 function create() {
+  function create() {
   this.cameras.main.setBackgroundColor("#3b3b6d");
 
-  // 🎵 MUSIC (starts after first input)
+  // 🎵 MUSIC (browser-safe)
   music = this.sound.add("music", { loop: true, volume: 0.4 });
-  this.input.once("pointerdown", () => music.play());
+
+  const startMusic = () => {
+    if (!music.isPlaying) {
+      music.play();
+    }
+  };
+
+  // allow BOTH mouse + keyboard
+  this.input.once("pointerdown", startMusic);
+  this.input.keyboard.once("keydown", startMusic);
 
   // 🧩 ZIG-ZAG PUZZLE WALLS (visual maze)
   this.add.image(220, 420, "block");
@@ -47,7 +57,7 @@ function create() {
   this.add.text(
     20,
     20,
-    "← → ↑ ↓ Float freely\nFind the path to the castle ✨",
+    "← → ↑ ↓ Float freely\nClick or press a key to start music 🎵",
     { fontSize: "15px", fill: "#ffffff" }
   );
 }
@@ -101,6 +111,7 @@ function winGame() {
     { fontSize: "18px", fill: "#ffffff" }
   ).setOrigin(0.5);
 }
+
 
 
 
