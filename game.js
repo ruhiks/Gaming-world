@@ -40,6 +40,9 @@ function preload() {
 }
 
 function create() {
+  this.game.renderer.config.antialias = false;
+  this.cameras.main.setRoundPixels(true);
+
   this.cameras.main.setBackgroundColor("#3b3b6d");
 
   walls = this.physics.add.staticGroup();
@@ -141,6 +144,7 @@ function winGame(scene) {
     { fontSize: "36px", fill: "#ffd700" }
   ).setOrigin(0.5);
 }
+
 
 
 
