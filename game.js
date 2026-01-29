@@ -15,6 +15,7 @@ const config = {
   type: Phaser.AUTO,
   width: 800,
   height: 500,
+
   parent: "game-container",
   physics: {
     default: "arcade",
@@ -68,6 +69,7 @@ const startMusic = () => {
 this.input.once("pointerdown", startMusic);
 this.input.keyboard.once("keydown", startMusic);
 
+
   walls = this.physics.add.staticGroup();
 
   let startX = 0;
@@ -85,6 +87,7 @@ this.input.keyboard.once("keydown", startMusic);
      this.add.image(px, py, "path")
       .setDepth(0)
       .setAlpha(0.9);
+
       }
 
       if (cell === "▓") {
@@ -181,6 +184,7 @@ function winGame(scene) {
     { fontSize: "18px", fill: "#ffffff" }
   ).setOrigin(0.5).setDepth(6);
 }
+
 
 
 
