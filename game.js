@@ -1,189 +1,200 @@
-// ================= CONFIG =================
-const TILE = 64;
-const SPEED = 160;
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
-const MAZE = [
-  ["S","░","▓","▓","░","░","░","░"],
-  ["▓","░","▓","░","░","▓","▓","░"],
-  ["▓","░","░","░","▓","░","░","░"],
-  ["▓","▓","▓","░","▓","░","▓","░"],
-  ["░","░","░","░","░","░","▓","░"],
-  ["▓","▓","▓","▓","▓","░","░","C"]
+const GRAVITY = 0.6;
+const MOVE_SPEED = 4;
+const JUMP_FORCE = 12;
+
+let gravityDir = 1;
+let gameOver = false;
+let win = false;
+
+// Images
+const bgImg = new Image();
+bgImg.src = "assets/bg.png";
+
+const wizardImg = new Image();
+wizardImg.src = "assets/wizard.png";
+
+const blockImg = new Image();
+blockImg.src = "assets/block.png";
+
+const spikeImg = new Image();
+spikeImg.src = "assets/spike.png";
+
+const castleImg = new Image();
+castleImg.src = "assets/castle.png";
+
+// Music
+const bgm = document.getElementById("bgm");
+bgm.volume = 0.4;
+bgm.play();
+
+// Player
+const player = {
+  x: 100,
+  y: 300,
+  w: 40,
+  h: 48,
+  vx: 0,
+  vy: 0,
+  onGround: false
+};
+
+// Maze Layout
+const blocks = [
+  { x: 0, y: 500, w: 960, h: 40 },
+  { x: 200, y: 420, w: 120, h: 30 },
+  { x: 400, y: 350, w: 120, h: 30 },
+  { x: 600, y: 280, w: 120, h: 30 },
+  { x: 400, y: 150, w: 120, h: 30 }
 ];
 
-const config = {
-  type: Phaser.AUTO,
-  width: 800,
-  height: 500,
+const spikes = [
+  { x: 320, y: 490, w: 40, h: 40 },
+  { x: 360, y: 490, w: 40, h: 40 },
+  { x: 520, y: 310, w: 40, h: 40 }
+];
 
-  parent: "game-container",
-  physics: {
-    default: "arcade",
-    arcade: {
-      gravity: { y: 0 },
-      debug: false
-    }
-  },
-  scene: { preload, create, update }
+const castle = {
+  x: 820,
+  y: 80,
+  w: 100,
+  h: 120
 };
 
-new Phaser.Game(config);
+// Controls
+const keys = {};
+window.addEventListener("keydown", e => {
+  keys[e.code] = true;
 
-// ================= GLOBALS =================
-let wizard, walls, cursors, music;
-let won = false;
-
-// ================= PRELOAD =================
-function preload() {
-  this.load.image("bg", "assets/background.png");
-  this.load.image("wizard", "assets/wizard.png");
-  this.load.image("block", "assets/block.png");
-  this.load.image("path", "assets/path.png");
-  this.load.image("castle", "assets/castle.png");
-  this.load.audio("music", "assets/music.mp3");
-}
-
-// ================= CREATE =================
-function create() {
-
-  // Pixel-perfect visuals
-  this.game.renderer.config.antialias = false;
-  this.cameras.main.setRoundPixels(true);
-
-  // Background
-  this.add.image(
-    this.scale.width / 2,
-    this.scale.height / 2,
-    "bg"
-  ).setDepth(-10).setAlpha(0.9);
-
-  // Music (starts on user action)
-  music = this.sound.add("music", { loop: true, volume: 0.4 });
-
-const startMusic = () => {
-  if (!music.isPlaying) {
-    music.play();
+  if (e.code === "KeyG") {
+    gravityDir *= -1;
   }
-};
 
-this.input.once("pointerdown", startMusic);
-this.input.keyboard.once("keydown", startMusic);
+  if (gameOver || win) {
+    if (e.code === "KeyR") resetGame();
+  }
+});
 
+window.addEventListener("keyup", e => {
+  keys[e.code] = false;
+});
 
-  walls = this.physics.add.staticGroup();
-
-  let startX = 0;
-  let startY = 0;
-  let castle;
-
-  // Build maze from grid
-  MAZE.forEach((row, y) => {
-    row.forEach((cell, x) => {
-
-      const px = x * TILE + TILE / 2;
-      const py = y * TILE + TILE / 2;
-
-      if (cell === "░") {
-     this.add.image(px, py, "path")
-      .setDepth(0)
-      .setAlpha(0.9);
-
-      }
-
-      if (cell === "▓") {
-        walls.create(px, py, "block")
-          .setDepth(1)
-          .refreshBody();
-      }
-
-      if (cell === "S") {
-        startX = px;
-        startY = py;
-      }
-
-      if (cell === "C") {
-        castle = this.physics.add.staticImage(px, py, "castle");
-        castle.setScale(0.6);
-        castle.setDepth(2);
-      }
-    });
-  });
-
-  // Wizard
-  wizard = this.physics.add.sprite(startX, startY, "wizard");
-  wizard.setScale(0.18);
-  wizard.setDepth(2);
-  wizard.setCollideWorldBounds(true);
-  wizard.body.setSize(wizard.width * 0.5, wizard.height * 0.7);
-
-  this.physics.add.collider(wizard, walls);
-  this.physics.add.overlap(wizard, castle, () => winGame(this), null, this);
-
-  cursors = this.input.keyboard.createCursorKeys();
-
-  // Camera follow (smooth)
-  this.cameras.main.startFollow(wizard, true, 0.08, 0.08);
-
-  // UI
-  this.add.text(
-    12,
-    12,
-    "← → ↑ ↓ Float\nSolve the maze & reach the castle ✨",
-    { fontSize: "14px", fill: "#ffffff" }
-  ).setDepth(3);
+// Collision
+function rectCollide(a, b) {
+  return (
+    a.x < b.x + b.w &&
+    a.x + a.w > b.x &&
+    a.y < b.y + b.h &&
+    a.y + a.h > b.y
+  );
 }
 
-// ================= UPDATE =================
+// Reset
+function resetGame() {
+  player.x = 100;
+  player.y = 300;
+  player.vx = 0;
+  player.vy = 0;
+  gravityDir = 1;
+  gameOver = false;
+  win = false;
+}
+
+// Update
 function update() {
-  if (won) return;
+  if (gameOver || win) return;
 
-  wizard.setVelocity(0);
+  // Horizontal
+  if (keys["ArrowLeft"]) player.vx = -MOVE_SPEED;
+  else if (keys["ArrowRight"]) player.vx = MOVE_SPEED;
+  else player.vx = 0;
 
-  if (cursors.left.isDown) wizard.setVelocityX(-SPEED);
-  if (cursors.right.isDown) wizard.setVelocityX(SPEED);
-  if (cursors.up.isDown) wizard.setVelocityY(-SPEED);
-  if (cursors.down.isDown) wizard.setVelocityY(SPEED);
-}
+  // Jump
+  if (keys["Space"] && player.onGround) {
+    player.vy = -JUMP_FORCE * gravityDir;
+    player.onGround = false;
+  }
 
-// ================= WIN =================
-function winGame(scene) {
-  won = true;
-  wizard.setVelocity(0);
+  // Gravity
+  player.vy += GRAVITY * gravityDir;
 
-  // Happy jump
-  scene.tweens.add({
-    targets: wizard,
-    y: wizard.y - 60,
-    yoyo: true,
-    repeat: 4,
-    duration: 220,
-    ease: "Quad.out"
+  // Apply movement
+  player.x += player.vx;
+  player.y += player.vy;
+
+  player.onGround = false;
+
+  // Block collision
+  blocks.forEach(b => {
+    if (rectCollide(player, b)) {
+      if (gravityDir === 1) {
+        player.y = b.y - player.h;
+      } else {
+        player.y = b.y + b.h;
+      }
+      player.vy = 0;
+      player.onGround = true;
+    }
   });
 
-  // Overlay
-  scene.add.rectangle(
-    scene.scale.width / 2,
-    scene.scale.height / 2,
-    scene.scale.width,
-    scene.scale.height,
-    0x000000,
-    0.6
-  ).setDepth(5);
+  // Spike collision
+  spikes.forEach(s => {
+    if (rectCollide(player, s)) {
+      gameOver = true;
+    }
+  });
 
-  scene.add.text(
-    scene.scale.width / 2,
-    scene.scale.height / 2 - 10,
-    "🎉 Level Completed! 🎉",
-    { fontSize: "38px", fill: "#ffd700" }
-  ).setOrigin(0.5).setDepth(6);
-
-  scene.add.text(
-    scene.scale.width / 2,
-    scene.scale.height / 2 + 35,
-    "The wizard reached the castle ✨",
-    { fontSize: "18px", fill: "#ffffff" }
-  ).setOrigin(0.5).setDepth(6);
+  // Win
+  if (rectCollide(player, castle)) {
+    win = true;
+  }
 }
+
+// Draw
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+
+  blocks.forEach(b =>
+    ctx.drawImage(blockImg, b.x, b.y, b.w, b.h)
+  );
+
+  spikes.forEach(s =>
+    ctx.drawImage(spikeImg, s.x, s.y, s.w, s.h)
+  );
+
+  ctx.drawImage(castleImg, castle.x, castle.y, castle.w, castle.h);
+
+  ctx.drawImage(wizardImg, player.x, player.y, player.w, player.h);
+
+  if (gameOver) {
+    ctx.fillStyle = "red";
+    ctx.font = "40px Arial";
+    ctx.fillText("YOU DIED", 380, 260);
+    ctx.font = "20px Arial";
+    ctx.fillText("Press R to Restart", 400, 300);
+  }
+
+  if (win) {
+    ctx.fillStyle = "lime";
+    ctx.font = "40px Arial";
+    ctx.fillText("YOU WIN!", 380, 260);
+  }
+}
+
+// Loop
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+loop();
+
+
 
 
 
