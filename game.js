@@ -56,14 +56,18 @@ function create() {
 
   // 🔧 PIXEL PERFECT FIX
   this.game.renderer.config.antialias = false;
-  this.cameras.main.setRoundPixels(true);
+  this.cameras.main.startFollow(wizard, true, 0.08, 0.08);
+
 
   // 🌄 BACKGROUND
-  this.add.image(
-    this.scale.width / 2,
-    this.scale.height / 2,
-    "bg"
-  ).setDepth(-10);
+  const bg = this.add.image(
+  this.scale.width / 2,
+  this.scale.height / 2,
+  "bg"
+);
+bg.setDepth(-10);
+bg.setAlpha(0.9);
+
 
   // 🧱 WALL GROUP
   walls = this.physics.add.staticGroup();
@@ -154,34 +158,51 @@ function winGame(scene) {
   won = true;
   wizard.setVelocity(0);
 
-  // 🎉 HAPPY JUMP
+  // 🎉 HAPPY CELEBRATION JUMP
   scene.tweens.add({
     targets: wizard,
-    y: wizard.y - 40,
+    y: wizard.y - 60,
+    duration: 220,
+    ease: "Quad.out",
     yoyo: true,
-    repeat: 3,
-    duration: 250,
-    ease: "Power1"
+    repeat: 5
   });
 
-  // 🌑 OVERLAY
+  // ✨ Slight spin (feels joyful)
+  scene.tweens.add({
+    targets: wizard,
+    angle: 360,
+    duration: 900,
+    ease: "Cubic.easeInOut"
+  });
+
+  // 🌑 Fade overlay
   scene.add.rectangle(
     scene.scale.width / 2,
     scene.scale.height / 2,
     scene.scale.width,
     scene.scale.height,
     0x000000,
-    0.6
+    0.65
   ).setDepth(5);
 
-  // 🏆 MESSAGE
+  // 🏆 WIN TEXT
   scene.add.text(
     scene.scale.width / 2,
-    scene.scale.height / 2,
+    scene.scale.height / 2 - 10,
     "🎉 Yeah! You did it! 🎉",
-    { fontSize: "36px", fill: "#ffd700" }
+    { fontSize: "38px", fill: "#ffd700" }
+  ).setOrigin(0.5).setDepth(6);
+
+  scene.add.text(
+    scene.scale.width / 2,
+    scene.scale.height / 2 + 40,
+    "The wizard reached the castle ✨",
+    { fontSize: "18px", fill: "#ffffff" }
   ).setOrigin(0.5).setDepth(6);
 }
+
+
 
 
 
