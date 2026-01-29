@@ -58,7 +58,8 @@ function create() {
       const py = y * TILE + TILE / 2;
 
       if (cell === "▓") {
-        walls.create(px, py, "block").setScale(0.5).refreshBody();
+       walls.create(px, py, "block")
+
       }
 
       if (cell === "░") {
@@ -144,6 +145,7 @@ function winGame(scene) {
     { fontSize: "36px", fill: "#ffd700" }
   ).setOrigin(0.5);
 }
+
 
 
 
