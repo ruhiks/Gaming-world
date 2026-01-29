@@ -44,8 +44,18 @@ function create() {
   this.cameras.main.setRoundPixels(true);
 
   this.cameras.main.setBackgroundColor("#3b3b6d");
+  walls = this.physics.add.staticGroup(); 
+  this.add.image(px, py, "path").setDepth(0);
+ walls.create(px, py, "block").setDepth(1);
+ wizard.setDepth(2);
+ castle.setDepth(2);
 
-  walls = this.physics.add.staticGroup();
+  this.add.image(
+  this.scale.width / 2,
+  this.scale.height / 2,
+  "bg"
+).setDepth(-1);
+
 
   let startX = 0;
   let startY = 0;
@@ -145,6 +155,7 @@ function winGame(scene) {
     { fontSize: "36px", fill: "#ffd700" }
   ).setOrigin(0.5);
 }
+
 
 
 
