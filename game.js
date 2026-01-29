@@ -1,5 +1,8 @@
+// ====== CONSTANTS ======
 const TILE = 64;
+const SPEED = 160;
 
+// ====== MAZE GRID ======
 const MAZE = [
   ["S","░","▓","▓","░","░","░","░"],
   ["▓","░","▓","░","░","▓","▓","░"],
@@ -9,6 +12,7 @@ const MAZE = [
   ["▓","▓","▓","▓","▓","░","░","C"]
 ];
 
+// ====== PHASER CONFIG ======
 const config = {
   type: Phaser.AUTO,
   width: TILE * 8,
@@ -21,17 +25,25 @@ const config = {
       debug: false
     }
   },
-  scene: { preload, create, update }
+  scene: {
+    preload,
+    create,
+    update
+  }
 };
 
 new Phaser.Game(config);
 
-let wizard, cursors, music;
+// ====== GLOBALS ======
+let wizard;
 let walls;
+let cursors;
+let music;
 let won = false;
-const SPEED = 160;
 
+// ====== PRELOAD ======
 function preload() {
+  this.load.image("bg", "assets/background.png");
   this.load.image("wizard", "assets/wizard.png");
   this.load.image("block", "assets/block.png");
   this.load.image("path", "assets/path.png");
@@ -39,41 +51,42 @@ function preload() {
   this.load.audio("music", "assets/music.mp3");
 }
 
+// ====== CREATE ======
 function create() {
+
+  // 🔧 PIXEL PERFECT FIX
   this.game.renderer.config.antialias = false;
   this.cameras.main.setRoundPixels(true);
 
-  this.cameras.main.setBackgroundColor("#3b3b6d");
-  walls = this.physics.add.staticGroup(); 
-  this.add.image(px, py, "path").setDepth(0);
- walls.create(px, py, "block").setDepth(1);
- wizard.setDepth(2);
- castle.setDepth(2);
-
+  // 🌄 BACKGROUND
   this.add.image(
-  this.scale.width / 2,
-  this.scale.height / 2,
-  "bg"
-).setDepth(-1);
+    this.scale.width / 2,
+    this.scale.height / 2,
+    "bg"
+  ).setDepth(-10);
 
+  // 🧱 WALL GROUP
+  walls = this.physics.add.staticGroup();
 
   let startX = 0;
   let startY = 0;
   let castle;
 
-  // 🎯 BUILD MAZE FROM GRID
+  // 🧩 BUILD MAZE FROM GRID
   MAZE.forEach((row, y) => {
     row.forEach((cell, x) => {
+
       const px = x * TILE + TILE / 2;
       const py = y * TILE + TILE / 2;
 
-      if (cell === "▓") {
-       walls.create(px, py, "block")
-
+      if (cell === "░") {
+        this.add.image(px, py, "path").setDepth(0);
       }
 
-      if (cell === "░") {
-        this.add.image(px, py, "path").setScale(0.5);
+      if (cell === "▓") {
+        walls.create(px, py, "block")
+          .setDepth(1)
+          .refreshBody();
       }
 
       if (cell === "S") {
@@ -84,6 +97,7 @@ function create() {
       if (cell === "C") {
         castle = this.physics.add.staticImage(px, py, "castle");
         castle.setScale(0.6);
+        castle.setDepth(2);
       }
     });
   });
@@ -91,29 +105,39 @@ function create() {
   // 🧙 WIZARD
   wizard = this.physics.add.sprite(startX, startY, "wizard");
   wizard.setScale(0.18);
+  wizard.setOrigin(0.5);
+  wizard.setDepth(2);
   wizard.setCollideWorldBounds(true);
-  wizard.body.setSize(wizard.width * 0.5, wizard.height * 0.7);
 
+  wizard.body.setSize(
+    wizard.width * 0.5,
+    wizard.height * 0.7
+  );
+
+  // 🧱 COLLISION
   this.physics.add.collider(wizard, walls);
 
-  // 🎵 MUSIC (user interaction safe)
+  // 🏰 WIN CONDITION
+  this.physics.add.overlap(wizard, castle, () => winGame(this), null, this);
+
+  // 🎵 MUSIC (browser safe)
   music = this.sound.add("music", { loop: true, volume: 0.4 });
   this.input.once("pointerdown", () => music.play());
   this.input.keyboard.once("keydown", () => music.play());
 
-  // 🏁 GOAL
-  this.physics.add.overlap(wizard, castle, () => winGame(this), null, this);
-
+  // 🎮 CONTROLS
   cursors = this.input.keyboard.createCursorKeys();
 
+  // 📝 UI TEXT
   this.add.text(
     12,
     12,
     "← → ↑ ↓ Float\nFind the path to the castle ✨",
     { fontSize: "14px", fill: "#ffffff" }
-  );
+  ).setDepth(3);
 }
 
+// ====== UPDATE ======
 function update() {
   if (won) return;
 
@@ -125,11 +149,12 @@ function update() {
   if (cursors.down.isDown) wizard.setVelocityY(SPEED);
 }
 
+// ====== WIN GAME ======
 function winGame(scene) {
   won = true;
   wizard.setVelocity(0);
 
-  // 🎉 Celebration jump
+  // 🎉 HAPPY JUMP
   scene.tweens.add({
     targets: wizard,
     y: wizard.y - 40,
@@ -139,6 +164,7 @@ function winGame(scene) {
     ease: "Power1"
   });
 
+  // 🌑 OVERLAY
   scene.add.rectangle(
     scene.scale.width / 2,
     scene.scale.height / 2,
@@ -146,19 +172,16 @@ function winGame(scene) {
     scene.scale.height,
     0x000000,
     0.6
-  );
+  ).setDepth(5);
 
+  // 🏆 MESSAGE
   scene.add.text(
     scene.scale.width / 2,
     scene.scale.height / 2,
-    "🎉 Level Completed 🎉",
+    "🎉 Yeah! You did it! 🎉",
     { fontSize: "36px", fill: "#ffd700" }
-  ).setOrigin(0.5);
+  ).setOrigin(0.5).setDepth(6);
 }
-
-
-
-
 
 
 
