@@ -151,10 +151,11 @@ function winGame(scene) {
   scene.add.text(
     scene.scale.width / 2,
     scene.scale.height / 2,
-    "🎉 Yeah! You did it! 🎉",
+    "🎉 Level Completed 🎉",
     { fontSize: "36px", fill: "#ffd700" }
   ).setOrigin(0.5);
 }
+
 
 
 
