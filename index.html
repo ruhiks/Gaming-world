@@ -2,28 +2,31 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Wizard Maze – Phase 2</title>
-
-  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
-
+  <title>Antigravity Wizard</title>
   <style>
     body {
       margin: 0;
-      background: #1e1e2f;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
+      background: black;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      margin: auto;
+      background: #000;
     }
   </style>
 </head>
 <body>
 
-<div id="game-container"></div>
+<canvas id="gameCanvas" width="960" height="540"></canvas>
+
+<audio id="bgm" src="assets/music.mp3" loop></audio>
 
 <script src="game.js"></script>
 </body>
 </html>
+
+
 
 
 
