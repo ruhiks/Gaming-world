@@ -13,8 +13,8 @@ const MAZE = [
 
 const config = {
   type: Phaser.AUTO,
-  width: TILE * 8,
-  height: TILE * 6,
+  width: 800,
+  height: 500,
   parent: "game-container",
   physics: {
     default: "arcade",
@@ -58,8 +58,15 @@ function create() {
 
   // Music (starts on user action)
   music = this.sound.add("music", { loop: true, volume: 0.4 });
-  this.input.once("pointerdown", () => music.play());
-  this.input.keyboard.once("keydown", () => music.play());
+
+const startMusic = () => {
+  if (!music.isPlaying) {
+    music.play();
+  }
+};
+
+this.input.once("pointerdown", startMusic);
+this.input.keyboard.once("keydown", startMusic);
 
   walls = this.physics.add.staticGroup();
 
@@ -75,7 +82,9 @@ function create() {
       const py = y * TILE + TILE / 2;
 
       if (cell === "░") {
-        this.add.image(px, py, "path").setDepth(0);
+     this.add.image(px, py, "path")
+      .setDepth(0)
+      .setAlpha(0.9);
       }
 
       if (cell === "▓") {
@@ -161,7 +170,7 @@ function winGame(scene) {
   scene.add.text(
     scene.scale.width / 2,
     scene.scale.height / 2 - 10,
-    "🎉 Level Complete! 🎉",
+    "🎉 Level Completed! 🎉",
     { fontSize: "38px", fill: "#ffd700" }
   ).setOrigin(0.5).setDepth(6);
 
@@ -172,6 +181,7 @@ function winGame(scene) {
     { fontSize: "18px", fill: "#ffffff" }
   ).setOrigin(0.5).setDepth(6);
 }
+
 
 
 
