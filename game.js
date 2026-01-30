@@ -170,7 +170,7 @@ function draw() {
 
   if (levelComplete) {
     ctx.font = "42px Arial";
-    ctx.fillText(" YEAH LEVEL COMPLETED", 250, 240);
+    ctx.fillText("LEVEL COMPLETED", 250, 240);
     ctx.font = "20px Arial";
     ctx.fillText("Press Ctrl + R to Continue", 300, 280);
   }
@@ -184,9 +184,6 @@ function loop() {
 }
 
 loop();
-
-
-
 
 
 
