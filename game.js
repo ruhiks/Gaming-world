@@ -9,7 +9,9 @@ const JUMP_FORCE = 14;
 
 // ================== GAME STATE ==================
 let gravityDir = 1;
+let gameOver = false;
 let levelComplete = false;
+let victoryJumpDone = false;
 
 // ================== IMAGE LOADER ==================
 function loadImage(src) {
@@ -22,7 +24,24 @@ function loadImage(src) {
 const bgImg = loadImage("assets/bg.png");
 const wizardImg = loadImage("assets/wizard.png");
 const blockImg = loadImage("assets/block.png");
+const spikeImg = loadImage("assets/spike.png");
 const castleImg = loadImage("assets/castle.png");
+
+// ================== MUSIC ==================
+const bgm = new Audio("assets/music.mp3");
+bgm.loop = true;
+bgm.volume = 0.4;
+let musicStarted = false;
+
+function startMusic() {
+  if (!musicStarted) {
+    bgm.play().catch(() => {});
+    musicStarted = true;
+  }
+}
+
+window.addEventListener("keydown", startMusic, { once: true });
+window.addEventListener("mousedown", startMusic, { once: true });
 
 // ================== PLAYER ==================
 const player = {
@@ -42,6 +61,12 @@ const blocks = [
   { x: 440, y: 340, w: 160, h: 30 },
   { x: 660, y: 260, w: 160, h: 30 },
   { x: 440, y: 150, w: 160, h: 30 }
+];
+
+const spikes = [
+  { x: 350, y: 460, w: 40, h: 40 },
+  { x: 390, y: 460, w: 40, h: 40 },
+  { x: 520, y: 300, w: 40, h: 40 }
 ];
 
 const castle = {
@@ -66,9 +91,34 @@ function collide(a, b) {
   );
 }
 
+// ================== RESET ==================
+function resetGame() {
+  player.x = 100;
+  player.y = 320;
+  player.vx = 0;
+  player.vy = 0;
+  gravityDir = 1;
+  gameOver = false;
+  levelComplete = false;
+  victoryJumpDone = false;
+}
+
 // ================== UPDATE ==================
 function update() {
-  if (levelComplete) return;
+
+  // -------- GAME OVER --------
+  if (gameOver) return;
+
+  // -------- VICTORY ANIMATION --------
+  if (levelComplete) {
+    if (!victoryJumpDone) {
+      player.vy = -12 * gravityDir;
+      victoryJumpDone = true;
+    }
+    player.vy += GRAVITY * gravityDir;
+    player.y += player.vy;
+    return;
+  }
 
   // Movement
   if (keys.ArrowLeft) player.vx = -MOVE_SPEED;
@@ -93,19 +143,21 @@ function update() {
   player.y += player.vy;
   player.onGround = false;
 
-  // Platform collision
-  for (let i = 0; i < blocks.length; i++) {
-    const b = blocks[i];
+  // Blocks
+  blocks.forEach(b => {
     if (collide(player, b)) {
-      if (gravityDir === 1) {
-        player.y = b.y - player.h;
-      } else {
-        player.y = b.y + b.h;
-      }
+      player.y = gravityDir === 1 ? b.y - player.h : b.y + b.h;
       player.vy = 0;
       player.onGround = true;
     }
-  }
+  });
+
+  // Spikes (death)
+  spikes.forEach(s => {
+    if (collide(player, s)) {
+      gameOver = true;
+    }
+  });
 
   // Win
   if (collide(player, castle)) {
@@ -117,18 +169,11 @@ function update() {
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Background
   ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
 
-  // Platforms
-  blocks.forEach(b => {
-    ctx.drawImage(blockImg, b.x, b.y, b.w, b.h);
-  });
-
-  // Castle
+  blocks.forEach(b => ctx.drawImage(blockImg, b.x, b.y, b.w, b.h));
+  spikes.forEach(s => ctx.drawImage(spikeImg, s.x, s.y, s.w, s.h));
   ctx.drawImage(castleImg, castle.x, castle.y, castle.w, castle.h);
-
-  // Player
   ctx.drawImage(wizardImg, player.x, player.y, player.w, player.h);
 
   // UI
@@ -136,13 +181,20 @@ function draw() {
   ctx.font = "18px Arial";
   ctx.fillText("← → Move | Space Jump | G Flip Gravity", 20, 30);
 
+  if (gameOver) {
+    ctx.font = "40px Arial";
+    ctx.fillText("YOU DIED", 360, 260);
+    ctx.font = "20px Arial";
+    ctx.fillText("Refresh to Restart", 370, 300);
+  }
+
   if (levelComplete) {
     ctx.font = "40px Arial";
-    ctx.fillText("LEVEL COMPLETE!", 300, 260);
+    ctx.fillText("LEVEL COMPLETE!", 280, 260);
   }
 }
 
-// ================== GAME LOOP ==================
+// ================== LOOP ==================
 function loop() {
   update();
   draw();
@@ -150,7 +202,6 @@ function loop() {
 }
 
 loop();
-
 
 
 
