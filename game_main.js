@@ -45,6 +45,7 @@ function draw() {
 function loop() {
   update();
   draw();
-  requestAnimationF
+  requestAnimationFrame(loop);
+}
 
-
+loop();
