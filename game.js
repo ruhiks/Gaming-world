@@ -1,134 +1,110 @@
-/* ===================== CANVAS ===================== */
-const canvas = document.getElementById("gameCanvas");
+const canvas = document.get5ElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-console.log("game.js loaded");
-
-/* ===================== CONSTANTS ===================== */
-const GRAVITY = 0.6;
-const MOVE_SPEED = 4;
-const JUMP_FORCE = 14;
-
-/* ===================== GAME STATE ===================== */
-let gravityDir = 1;
-let gameOver = false;
-let win = false;
-let levelComplete = false;
-
-/* ===================== SAFE IMAGE LOADER ===================== */
-function loadImage(src) {
-  const img = new Image();
-  img.src = src + "?v=" + Date.now(); // cache-busting
-  img.onerror = () => console.warn("Image failed:", src);
-  return img;
-}
-
-/* ===================== IMAGES ===================== */
-const bgImg = loadImage("assets/bg.png");
-const wizardImg = loadImage("assets/wizard.png");
-const blockImg = loadImage("assets/block.png");
-const spikeImg = loadImage("assets/spike.png");
-const castleImg = loadImage("assets/castle_v2.png"); // 👈 UPDATED
-
-/* ===================== MUSIC ===================== */
-const bgm = document.getElementById("bgm");
-let musicStarted = false;
-
-function startMusic() {
-  if (!musicStarted && bgm) {
-    bgm.volume = 0.4;
-    bgm.play().then(() => {
-      musicStarted = true;
-    }).catch(() => {});
-  }
-}
-
-window.addEventListener("keydown", startMusic, { once: true });
-window.addEventListener("mousedown", startMusic, { once: true });
-
-/* ===================== PLAYER (BIG SIZE) ===================== */
+// Player
 const player = {
   x: 100,
-  y: 260,
-  w: 96,   // 👈 BIG WIDTH
-  h: 128,  // 👈 BIG HEIGHT
+  y: 300,
+  w: 96,
+  h: 128,
   vx: 0,
   vy: 0,
   onGround: false
 };
 
-/* ===================== LEVEL ===================== */
+let gravity = 0.6;
+let gravityDir = 1;
+let gameOver = false;
+let win = false;
+
+// Images
+function img(src) {
+  const i = new Image();
+  i.src = src;
+  return i;
+}
+
+const bg = img("assets/bg.png");
+const wizard = img("assets/wizard.png");
+const blockImg = img("assets/block.png");
+const spikeImg = img("assets/spike.png");
+const castleImg = img("assets/castle_v2.png");
+
+// Level
 const blocks = [
   { x: 0, y: 500, w: 960, h: 40 },
-  { x: 200, y: 420, w: 160, h: 30 },
-  { x: 420, y: 340, w: 160, h: 30 },
-  { x: 650, y: 260, w: 160, h: 30 },
-  { x: 420, y: 150, w: 160, h: 30 }
+  { x: 250, y: 420, w: 160, h: 30 },
+  { x: 500, y: 340, w: 160, h: 30 }
 ];
 
 const spikes = [
-  { x: 340, y: 460, w: 40, h: 40 },
-  { x: 380, y: 460, w: 40, h: 40 },
-  { x: 560, y: 310, w: 40, h: 40 }
+  { x: 350, y: 460, w: 40, h: 40 }
 ];
 
-const castle = {
-  x: 780,
-  y: 60,
-  w: 160,
-  h: 180
-};
+const castle = { x: 760, y: 80, w: 160, h: 180 };
 
-/* ===================== INPUT ===================== */
+// Input
 const keys = {};
+addEventListener("keydown", e => keys[e.code] = true);
+addEventListener("keyup", e => keys[e.code] = false);
 
-window.addEventListener("keydown", e => {
-  keys[e.code] = true;
-
-  if (e.code === "KeyG" && !levelComplete && !gameOver) {
-    gravityDir *= -1;
-  }
-
-  if ((gameOver || win) && e.code === "KeyR") {
-    resetGame();
-  }
-});
-
-window.addEventListener("keyup", e => {
-  keys[e.code] = false;
-});
-
-/* ===================== HELPERS ===================== */
-function rectCollide(a, b) {
-  return (
-    a.x < b.x + b.w &&
-    a.x + a.w > b.x &&
-    a.y < b.y + b.h &&
-    a.y + a.h > b.y
-  );
+function hit(a, b) {
+  return a.x < b.x + b.w &&
+         a.x + a.w > b.x &&
+         a.y < b.y + b.h &&
+         a.y + a.h > b.y;
 }
 
-/* ===================== RESET ===================== */
-function resetGame() {
-  player.x = 100;
-  player.y = 260;
-  player.vx = 0;
-  player.vy = 0;
-  gravityDir = 1;
-  gameOver = false;
-  win = false;
-  levelComplete = false;
-}
-
-/* ===================== UPDATE ===================== */
 function update() {
+  if (gameOver || win) return;
 
-  // Victory jump animation
-  if (levelComplete) {
-    player.vy += GRAVITY * gravityDir;
-    player.y += player.vy;
+  if (keys.ArrowLeft) player.vx = -4;
+  else if (keys.ArrowRight) player.vx = 4;
+  else player.vx = 0;
 
-    blocks.forEach(b => {
-      if (re
+  if (keys.Space && player.onGround) {
+    player.vy = -14 * gravityDir;
+    player.onGround = false;
+  }
 
+  if (keys.KeyG) gravityDir *= -1;
 
+  player.vy += gravity * gravityDir;
+  player.x += player.vx;
+  player.y += player.vy;
+  player.onGround = false;
+
+  blocks.forEach(b => {
+    if (hit(player, b)) {
+      player.y = gravityDir === 1 ? b.y - player.h : b.y + b.h;
+      player.vy = 0;
+      player.onGround = true;
+    }
+  });
+
+  spikes.forEach(s => {
+    if (hit(player, s)) gameOver = true;
+  });
+
+  if (hit(player, castle)) win = true;
+}
+
+function draw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(bg,0,0,canvas.width,canvas.height);
+  blocks.forEach(b => ctx.drawImage(blockImg,b.x,b.y,b.w,b.h));
+  spikes.forEach(s => ctx.drawImage(spikeImg,s.x,s.y,s.w,s.h));
+  ctx.drawImage(castleImg,castle.x,castle.y,castle.w,castle.h);
+  ctx.drawImage(wizard,player.x,player.y,player.w,player.h);
+
+  if (gameOver) ctx.fillText("YOU DIED",380,260);
+  if (win) ctx.fillText("LEVEL COMPLETE",300,260);
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+loop();
