@@ -1,41 +1,41 @@
-// ================= CANVAS =================
+/* ===================== BASIC SETUP ===================== */
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-// ================= CONSTANTS =================
+console.log("game.js loaded");
+
+/* ===================== CONSTANTS ===================== */
 const GRAVITY = 0.6;
 const MOVE_SPEED = 4;
 const JUMP_FORCE = 12;
 
-// ================= GAME STATE =================
+/* ===================== GAME STATE ===================== */
 let gravityDir = 1;
 let gameOver = false;
 let win = false;
 let levelComplete = false;
 
-// ================= IMAGES =================
-const bgImg = new Image();
-bgImg.src = "assets/bg.png";
+/* ===================== SAFE IMAGE LOADER ===================== */
+function loadImage(src) {
+  const img = new Image();
+  img.src = src;
+  img.onerror = () => console.warn("Image failed:", src);
+  return img;
+}
 
-const wizardImg = new Image();
-wizardImg.src = "assets/wizard.png";
+const bgImg = loadImage("assets/bg.png");
+const wizardImg = loadImage("assets/wizard.png");
+const blockImg = loadImage("assets/block.png");
+const spikeImg = loadImage("assets/spike.png");
+const castleImg = loadImage("assets/castle.png");
 
-const blockImg = new Image();
-blockImg.src = "assets/block.png";
-
-const spikeImg = new Image();
-spikeImg.src = "assets/spike.png";
-
-const castleImg = new Image();
-castleImg.src = "assets/castle.png";
-
-// ================= MUSIC =================
+/* ===================== MUSIC (SAFE) ===================== */
 const bgm = document.getElementById("bgm");
-bgm.volume = 0.4;
 let musicStarted = false;
 
 function startMusic() {
-  if (!musicStarted) {
+  if (!musicStarted && bgm) {
+    bgm.volume = 0.4;
     bgm.play().then(() => {
       musicStarted = true;
     }).catch(() => {});
@@ -45,7 +45,7 @@ function startMusic() {
 window.addEventListener("keydown", startMusic, { once: true });
 window.addEventListener("mousedown", startMusic, { once: true });
 
-// ================= PLAYER (MEDIUM SIZE) =================
+/* ===================== PLAYER ===================== */
 const player = {
   x: 100,
   y: 300,
@@ -56,7 +56,7 @@ const player = {
   onGround: false
 };
 
-// ================= LEVEL =================
+/* ===================== LEVEL ===================== */
 const blocks = [
   { x: 0, y: 500, w: 960, h: 40 },
   { x: 200, y: 420, w: 140, h: 30 },
@@ -78,7 +78,7 @@ const castle = {
   h: 140
 };
 
-// ================= INPUT =================
+/* ===================== INPUT ===================== */
 const keys = {};
 
 window.addEventListener("keydown", e => {
@@ -97,7 +97,7 @@ window.addEventListener("keyup", e => {
   keys[e.code] = false;
 });
 
-// ================= HELPERS =================
+/* ===================== HELPERS ===================== */
 function rectCollide(a, b) {
   return (
     a.x < b.x + b.w &&
@@ -107,7 +107,7 @@ function rectCollide(a, b) {
   );
 }
 
-// ================= RESET =================
+/* ===================== RESET ===================== */
 function resetGame() {
   player.x = 100;
   player.y = 300;
@@ -119,21 +119,17 @@ function resetGame() {
   levelComplete = false;
 }
 
-// ================= UPDATE =================
+/* ===================== UPDATE ===================== */
 function update() {
 
-  // ---- LEVEL COMPLETE JUMP ----
+  // Victory jump animation
   if (levelComplete) {
     player.vy += GRAVITY * gravityDir;
     player.y += player.vy;
 
     blocks.forEach(b => {
       if (rectCollide(player, b)) {
-        if (gravityDir === 1) {
-          player.y = b.y - player.h;
-        } else {
-          player.y = b.y + b.h;
-        }
+        player.y = gravityDir === 1 ? b.y - player.h : b.y + b.h;
         player.vy = -10 * gravityDir;
       }
     });
@@ -142,7 +138,7 @@ function update() {
 
   if (gameOver || win) return;
 
-  // ---- MOVEMENT ----
+  // Movement
   if (keys["ArrowLeft"]) player.vx = -MOVE_SPEED;
   else if (keys["ArrowRight"]) player.vx = MOVE_SPEED;
   else player.vx = 0;
@@ -152,62 +148,88 @@ function update() {
     player.onGround = false;
   }
 
-  // ---- GRAVITY ----
+  // Gravity
   player.vy += GRAVITY * gravityDir;
-
   player.x += player.vx;
   player.y += player.vy;
-
   player.onGround = false;
 
-  // ---- BLOCK COLLISION ----
+  // Blocks
   blocks.forEach(b => {
     if (rectCollide(player, b)) {
-      if (gravityDir === 1) {
-        player.y = b.y - player.h;
-      } else {
-        player.y = b.y + b.h;
-      }
+      player.y = gravityDir === 1 ? b.y - player.h : b.y + b.h;
       player.vy = 0;
       player.onGround = true;
     }
   });
 
-  // ---- SPIKES ----
+  // Spikes
   spikes.forEach(s => {
     if (rectCollide(player, s)) {
       gameOver = true;
     }
   });
 
-  // ---- WIN ----
+  // Win
   if (rectCollide(player, castle)) {
     levelComplete = true;
     win = true;
-    player.vx = 0;
     player.vy = -12 * gravityDir;
   }
 }
 
-// ================= DRAW =================
+/* ===================== DRAW ===================== */
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  if (bgImg.complete && bgImg.naturalWidth !== 0) {
+  // Background
+  if (bgImg.complete && bgImg.naturalWidth) {
     ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
   } else {
     ctx.fillStyle = "#1a1a2e";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
-  blocks.forEach(b => ctx.drawImage(blockImg, b.x, b.y, b.w, b.h));
-  spikes.forEach(s => ctx.drawImage(spikeImg, s.x, s.y, s.w, s.h));
-  ctx.drawImage(castleImg, castle.x, castle.y, castle.w, castle.h);
-  ctx.drawImage(wizardImg, player.x, player.y, player.w, player.h);
+  // Blocks
+  blocks.forEach(b => {
+    if (blockImg.complete && blockImg.naturalWidth) {
+      ctx.drawImage(blockImg, b.x, b.y, b.w, b.h);
+    } else {
+      ctx.fillStyle = "#555";
+      ctx.fillRect(b.x, b.y, b.w, b.h);
+    }
+  });
 
+  // Spikes
+  spikes.forEach(s => {
+    if (spikeImg.complete && spikeImg.naturalWidth) {
+      ctx.drawImage(spikeImg, s.x, s.y, s.w, s.h);
+    } else {
+      ctx.fillStyle = "red";
+      ctx.fillRect(s.x, s.y, s.w, s.h);
+    }
+  });
+
+  // Castle
+  if (castleImg.complete && castleImg.naturalWidth) {
+    ctx.drawImage(castleImg, castle.x, castle.y, castle.w, castle.h);
+  } else {
+    ctx.fillStyle = "gold";
+    ctx.fillRect(castle.x, castle.y, castle.w, castle.h);
+  }
+
+  // Player
+  if (wizardImg.complete && wizardImg.naturalWidth) {
+    ctx.drawImage(wizardImg, player.x, player.y, player.w, player.h);
+  } else {
+    ctx.fillStyle = "cyan";
+    ctx.fillRect(player.x, player.y, player.w, player.h);
+  }
+
+  // UI
   if (gameOver) {
     ctx.fillStyle = "red";
-    ctx.font = "42px Arial";
+    ctx.font = "40px Arial";
     ctx.fillText("YOU DIED", 360, 260);
     ctx.font = "20px Arial";
     ctx.fillText("Press R to Restart", 380, 300);
@@ -215,12 +237,12 @@ function draw() {
 
   if (win) {
     ctx.fillStyle = "#00ffcc";
-    ctx.font = "42px Arial";
+    ctx.font = "40px Arial";
     ctx.fillText("LEVEL COMPLETE!", 260, 240);
   }
 }
 
-// ================= LOOP =================
+/* ===================== LOOP ===================== */
 function loop() {
   update();
   draw();
@@ -228,24 +250,3 @@ function loop() {
 }
 
 loop();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
