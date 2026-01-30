@@ -28,7 +28,18 @@ castleImg.src = "assets/castle.png";
 // Music
 const bgm = document.getElementById("bgm");
 bgm.volume = 0.4;
-document.addEventListener("keydown", () => {   if (bgm.paused) bgm.play(); }, { once: true });
+
+let musicStarted = false;
+
+function startMusic() {
+  if (!musicStarted) {
+    bgm.play().then(() => {
+      musicStarted = true;
+    }).catch(err => {
+      console.log("Music blocked:", err);
+    });
+  }
+}
 
 // Player
 const player = {
@@ -197,6 +208,7 @@ function loop() {
 }
 
 loop();
+
 
 
 
