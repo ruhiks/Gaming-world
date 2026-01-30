@@ -6,8 +6,8 @@ const ctx = canvas.getContext("2d");
 const player = {
   x: 100,
   y: 300,
-  w: 100,
-  h: 140,
+  w: 120,   // BIG character
+  h: 160,
   vx: 0,
   vy: 0,
   onGround: false
@@ -16,13 +16,14 @@ const player = {
 let gravity = 0.6;
 let gravityDir = 1;
 
-// ===== IMAGES =====
+// ===== IMAGE LOADER =====
 function load(src) {
-  const i = new Image();
-  i.src = src;
-  return i;
+  const img = new Image();
+  img.src = src;
+  return img;
 }
 
+// ===== ASSETS =====
 const bg = load("assets/bg.png");
 const wizard = load("assets/wizard.png");
 const blockImg = load("assets/block.png");
@@ -103,6 +104,7 @@ function loop() {
 }
 
 loop();
+
 
 
 
