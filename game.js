@@ -28,7 +28,7 @@ castleImg.src = "assets/castle.png";
 // Music
 const bgm = document.getElementById("bgm");
 bgm.volume = 0.4;
-bgm.play();
+document.addEventListener("keydown", () => {   if (bgm.paused) bgm.play(); }, { once: true });
 
 // Player
 const player = {
@@ -154,9 +154,13 @@ function update() {
 
 // Draw
 function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
+  if (bgImg.complete && bgImg.naturalWidth !== 0) {
   ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+} else {
+  ctx.fillStyle = "#1a1a2e";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
 
   blocks.forEach(b =>
     ctx.drawImage(blockImg, b.x, b.y, b.w, b.h)
@@ -193,6 +197,7 @@ function loop() {
 }
 
 loop();
+
 
 
 
