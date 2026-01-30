@@ -1,36 +1,33 @@
-console.log("Antigravity Wizard game loaded");
-
-// ================= CANVAS =================
+// ================== CANVAS ==================
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-// ================= CONSTANTS =================
+// ================== CONSTANTS ==================
 const GRAVITY = 0.6;
 const MOVE_SPEED = 4;
 const JUMP_FORCE = 14;
 
-// ================= GAME STATE =================
+// ================== GAME STATE ==================
 let gravityDir = 1;
-let gameOver = false;
-let win = false;
+let levelComplete = false;
 
-// ================= IMAGE LOADER =================
+// ================== IMAGE LOADER ==================
 function loadImage(src) {
   const img = new Image();
   img.src = src;
   return img;
 }
 
-// ================= ASSETS =================
+// ================== ASSETS ==================
 const bgImg = loadImage("assets/bg.png");
 const wizardImg = loadImage("assets/wizard.png");
 const blockImg = loadImage("assets/block.png");
-const castleImg = loadImage("assets/castle_v2.png");
+const castleImg = loadImage("assets/castle.png");
 
-// ================= PLAYER =================
+// ================== PLAYER ==================
 const player = {
   x: 100,
-  y: 300,
+  y: 320,
   w: 96,
   h: 128,
   vx: 0,
@@ -38,28 +35,28 @@ const player = {
   onGround: false
 };
 
-// ================= LEVEL (MAZE) =================
+// ================== LEVEL ==================
 const blocks = [
   { x: 0, y: 500, w: 960, h: 40 },
-  { x: 200, y: 420, w: 160, h: 30 },
-  { x: 450, y: 350, w: 160, h: 30 },
-  { x: 700, y: 280, w: 160, h: 30 },
-  { x: 450, y: 160, w: 160, h: 30 }
+  { x: 220, y: 420, w: 160, h: 30 },
+  { x: 440, y: 340, w: 160, h: 30 },
+  { x: 660, y: 260, w: 160, h: 30 },
+  { x: 440, y: 150, w: 160, h: 30 }
 ];
 
 const castle = {
-  x: 780,
+  x: 760,
   y: 80,
   w: 160,
   h: 180
 };
 
-// ================= INPUT =================
+// ================== INPUT ==================
 const keys = {};
 window.addEventListener("keydown", e => keys[e.code] = true);
 window.addEventListener("keyup", e => keys[e.code] = false);
 
-// ================= COLLISION =================
+// ================== COLLISION ==================
 function collide(a, b) {
   return (
     a.x < b.x + b.w &&
@@ -69,9 +66,9 @@ function collide(a, b) {
   );
 }
 
-// ================= UPDATE =================
+// ================== UPDATE ==================
 function update() {
-  if (gameOver || win) return;
+  if (levelComplete) return;
 
   // Movement
   if (keys.ArrowLeft) player.vx = -MOVE_SPEED;
@@ -87,7 +84,7 @@ function update() {
   // Gravity flip
   if (keys.KeyG) {
     gravityDir *= -1;
-    keys.KeyG = false; // prevent rapid flip
+    keys.KeyG = false;
   }
 
   // Physics
@@ -96,7 +93,7 @@ function update() {
   player.y += player.vy;
   player.onGround = false;
 
-  // Platforms
+  // Platform collision
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i];
     if (collide(player, b)) {
@@ -112,58 +109,40 @@ function update() {
 
   // Win
   if (collide(player, castle)) {
-    win = true;
+    levelComplete = true;
   }
 }
 
-// ================= DRAW =================
+// ================== DRAW ==================
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   // Background
-  if (bgImg.complete) {
-    ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
-  } else {
-    ctx.fillStyle = "#111";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }
+  ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
 
   // Platforms
-  for (let i = 0; i < blocks.length; i++) {
-    const b = blocks[i];
-    if (blockImg.complete) {
-      ctx.drawImage(blockImg, b.x, b.y, b.w, b.h);
-    } else {
-      ctx.fillStyle = "#555";
-      ctx.fillRect(b.x, b.y, b.w, b.h);
-    }
-  }
+  blocks.forEach(b => {
+    ctx.drawImage(blockImg, b.x, b.y, b.w, b.h);
+  });
 
   // Castle
-  if (castleImg.complete) {
-    ctx.drawImage(castleImg, castle.x, castle.y, castle.w, castle.h);
-  }
+  ctx.drawImage(castleImg, castle.x, castle.y, castle.w, castle.h);
 
   // Player
-  if (wizardImg.complete) {
-    ctx.drawImage(wizardImg, player.x, player.y, player.w, player.h);
-  } else {
-    ctx.fillStyle = "cyan";
-    ctx.fillRect(player.x, player.y, player.w, player.h);
-  }
+  ctx.drawImage(wizardImg, player.x, player.y, player.w, player.h);
 
   // UI
   ctx.fillStyle = "white";
   ctx.font = "18px Arial";
   ctx.fillText("← → Move | Space Jump | G Flip Gravity", 20, 30);
 
-  if (win) {
+  if (levelComplete) {
     ctx.font = "40px Arial";
-    ctx.fillText("LEVEL COMPLETE!", 280, 260);
+    ctx.fillText("LEVEL COMPLETE!", 300, 260);
   }
 }
 
-// ================= LOOP =================
+// ================== GAME LOOP ==================
 function loop() {
   update();
   draw();
@@ -171,7 +150,6 @@ function loop() {
 }
 
 loop();
-
 
 
 
