@@ -3,28 +3,39 @@
 <head>
   <meta charset="UTF-8" />
   <title>Antigravity Wizard</title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <style>
-    body {
+    html, body {
       margin: 0;
-      background: black;
+      padding: 0;
+      background: #000;
+      width: 100%;
+      height: 100%;
       overflow: hidden;
     }
+
     canvas {
       display: block;
       margin: auto;
-      background: #000;
+      background: #111;
     }
   </style>
 </head>
+
 <body>
 
-<canvas id="gameCanvas" width="960" height="540"></canvas>
+  <!-- GAME CANVAS -->
+  <canvas id="gameCanvas" width="960" height="540"></canvas>
 
-<audio id="bgm" src="assets/music.mp3" loop></audio>
+  <!-- GAME SCRIPT (ONLY ONE SCRIPT!) -->
+  <script src="game_main.js"></script>
 
-<script src="game_main.js"></script>
 </body>
 </html>
+
+
 
 
 
