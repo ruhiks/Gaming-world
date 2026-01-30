@@ -1,20 +1,20 @@
 /* ========= FILE CHECK ========= */
 console.log("game_main.js loaded");
 
-/* ========= CANVAS ========= */
+/* ========= CANVAS (FIXED) ========= */
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-/* ========= BASIC SAFETY ========= */
+/* ========= SAFETY ========= */
 if (!canvas || !ctx) {
-  alert("Canvas not found. Check index.html");
+  throw new Error("Canvas not found. Check index.html");
 }
 
 /* ========= PLAYER ========= */
 const player = {
   x: 100,
   y: 350,
-  w: 120,   // BIG character
+  w: 120,
   h: 160,
   vx: 0,
   vy: 0,
@@ -25,13 +25,14 @@ const player = {
 const GRAVITY = 0.6;
 let gravityDir = 1;
 
-/* ========= IMAGES ========= */
+/* ========= IMAGE LOADER ========= */
 function loadImage(src) {
   const img = new Image();
   img.src = src;
   return img;
 }
 
+/* ========= ASSETS ========= */
 const bgImg     = loadImage("assets/bg.png");
 const wizardImg = loadImage("assets/wizard.png");
 const blockImg  = loadImage("assets/block.png");
@@ -52,102 +53,5 @@ window.addEventListener("keydown", e => keys[e.code] = true);
 window.addEventListener("keyup",   e => keys[e.code] = false);
 
 /* ========= COLLISION ========= */
-function collide(a, b) {
-  return (
-    a.x < b.x + b.w &&
-    a.x + a.w > b.x &&
-    a.y < b.y + b.h &&
-    a.y + a.h > b.y
-  );
-}
+function c
 
-/* ========= UPDATE ========= */
-function update() {
-  // Movement
-  if (keys.ArrowLeft) player.vx = -4;
-  else if (keys.ArrowRight) player.vx = 4;
-  else player.vx = 0;
-
-  // Jump
-  if (keys.Space && player.onGround) {
-    player.vy = -14 * gravityDir;
-    player.onGround = false;
-  }
-
-  // Gravity flip
-  if (keys.KeyG) gravityDir *= -1;
-
-  // Physics
-  player.vy += GRAVITY * gravityDir;
-  player.x += player.vx;
-  player.y += player.vy;
-  player.onGround = false;
-
-  // Ground / platforms
-  blocks.forEach(b => {
-    if (collide(player, b)) {
-      player.y = gravityDir === 1 ? b.y - player.h : b.y + b.h;
-      player.vy = 0;
-      player.onGround = true;
-    }
-  });
-}
-
-/* ========= DRAW ========= */
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // Background
-  if (bgImg.complete) {
-    ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
-  } else {
-    ctx.fillStyle = "#1a1a2e";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }
-
-  // Platforms
-  blocks.forEach(b => {
-    if (blockImg.complete) {
-      ctx.drawImage(blockImg, b.x, b.y, b.w, b.h);
-    } else {
-      ctx.fillStyle = "#555";
-      ctx.fillRect(b.x, b.y, b.w, b.h);
-    }
-  });
-
-  // Castle
-  if (castleImg.complete) {
-    ctx.drawImage(castleImg, castle.x, castle.y, castle.w, castle.h);
-  } else {
-    ctx.fillStyle = "gold";
-    ctx.fillRect(castle.x, castle.y, castle.w, castle.h);
-  }
-
-  // Player
-  if (wizardImg.complete) {
-    ctx.drawImage(
-      wizardImg,
-      player.x,
-      player.y,
-      player.w,
-      player.h
-    );
-  } else {
-    ctx.fillStyle = "cyan";
-    ctx.fillRect(player.x, player.y, player.w, player.h);
-  }
-
-  // UI
-  ctx.fillStyle = "white";
-  ctx.font = "16px Arial";
-  ctx.fillText("← → Move | Space Jump | G Flip Gravity", 20, 30);
-}
-
-/* ========= LOOP ========= */
-function loop() {
-  update();
-  draw();
-  requestAnimationFrame(loop);
-}
-
-loop();
