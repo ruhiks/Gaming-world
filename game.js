@@ -45,12 +45,13 @@ function startMusic() {
 const player = {
   x: 100,
   y: 300,
-  w: 40,
-  h: 48,
+  w: 64,   // width increased
+  h: 80,   // height increased
   vx: 0,
   vy: 0,
   onGround: false
 };
+
 
 // Maze Layout
 const blocks = [
@@ -208,6 +209,7 @@ function loop() {
 }
 
 loop();
+
 
 
 
