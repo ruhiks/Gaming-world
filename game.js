@@ -11,7 +11,6 @@ const JUMP_FORCE = 14;
 let gravityDir = 1;
 let gameOver = false;
 let levelComplete = false;
-let victoryJumpDone = false;
 
 // ================== IMAGE LOADER ==================
 function loadImage(src) {
@@ -39,7 +38,6 @@ function startMusic() {
     musicStarted = true;
   }
 }
-
 window.addEventListener("keydown", startMusic, { once: true });
 window.addEventListener("mousedown", startMusic, { once: true });
 
@@ -91,34 +89,10 @@ function collide(a, b) {
   );
 }
 
-// ================== RESET ==================
-function resetGame() {
-  player.x = 100;
-  player.y = 320;
-  player.vx = 0;
-  player.vy = 0;
-  gravityDir = 1;
-  gameOver = false;
-  levelComplete = false;
-  victoryJumpDone = false;
-}
-
 // ================== UPDATE ==================
 function update() {
-
-  // -------- GAME OVER --------
-  if (gameOver) return;
-
-  // -------- VICTORY ANIMATION --------
-  if (levelComplete) {
-    if (!victoryJumpDone) {
-      player.vy = -12 * gravityDir;
-      victoryJumpDone = true;
-    }
-    player.vy += GRAVITY * gravityDir;
-    player.y += player.vy;
-    return;
-  }
+  // Freeze game on end states
+  if (gameOver || levelComplete) return;
 
   // Movement
   if (keys.ArrowLeft) player.vx = -MOVE_SPEED;
@@ -143,7 +117,7 @@ function update() {
   player.y += player.vy;
   player.onGround = false;
 
-  // Blocks
+  // Block collision
   blocks.forEach(b => {
     if (collide(player, b)) {
       player.y = gravityDir === 1 ? b.y - player.h : b.y + b.h;
@@ -152,16 +126,22 @@ function update() {
     }
   });
 
-  // Spikes (death)
+  // Spike collision (death)
   spikes.forEach(s => {
     if (collide(player, s)) {
       gameOver = true;
     }
   });
 
-  // Win
+  // Win condition (ENTER CASTLE)
   if (collide(player, castle)) {
     levelComplete = true;
+
+    // Lock wizard neatly inside castle
+    player.x = castle.x + castle.w / 2 - player.w / 2;
+    player.y = castle.y + castle.h - player.h;
+    player.vx = 0;
+    player.vy = 0;
   }
 }
 
@@ -183,14 +163,16 @@ function draw() {
 
   if (gameOver) {
     ctx.font = "40px Arial";
-    ctx.fillText("YOU DIED", 360, 260);
+    ctx.fillText("YOU DIED", 360, 250);
     ctx.font = "20px Arial";
-    ctx.fillText("Refresh to Restart", 370, 300);
+    ctx.fillText("Press Ctrl + R to Restart", 330, 290);
   }
 
   if (levelComplete) {
-    ctx.font = "40px Arial";
-    ctx.fillText("LEVEL COMPLETE!", 280, 260);
+    ctx.font = "42px Arial";
+    ctx.fillText(" YEAH LEVEL COMPLETED", 250, 240);
+    ctx.font = "20px Arial";
+    ctx.fillText("Press Ctrl + R to Continue", 300, 280);
   }
 }
 
@@ -202,6 +184,7 @@ function loop() {
 }
 
 loop();
+
 
 
 
