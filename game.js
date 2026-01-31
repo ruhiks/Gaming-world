@@ -1,3 +1,7 @@
+
+game.js
+
+
 /* ================= CANVAS & SETUP ================= */
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -96,25 +100,27 @@ const levels = [
         castle: { x: 1600, y: 50, w: 140, h: 200 },
         width: 2000
     },
-    // LEVEL 2: More Spikes & Height
+    // LEVEL 2: More Spikes & Height (Simplified gaps)
     {
         start: { x: 100, y: 400 },
         blocks: [
             B(0, 500, 400, 100),
-            B(500, 500, 400, 100),
-            B(1000, 400, 150, 40),
-            B(1300, 300, 150, 40),
-            B(1600, 200, 400, 40),
-            B(2100, 300, 200, 40)
+            // Gap reduced (was 500 start, now 450)
+            B(450, 500, 400, 100),
+            // Next blocks closer
+            B(850, 400, 150, 40),
+            B(1050, 300, 150, 40), // Closer
+            B(1250, 200, 400, 40), // Closer
+            B(1700, 300, 200, 40)
         ],
         spikes: [
-            S(420, 500), S(450, 500), // Spikes in gap
+            S(420, 500), // Spikes in gap
             S(950, 550),              // Ground spike
             S(1100, 400 - 60),        // Jump over spike
-            S(1700, 200 - 60),
-            S(1800, 200 - 60)
+            S(1350, 200 - 60),        // Adjusted for new block pos
+            S(1450, 200 - 60)
         ],
-        castle: { x: 2150, y: 100, w: 140, h: 200 },
+        castle: { x: 1750, y: 100, w: 140, h: 200 },
         width: 2500
     },
     // LEVEL 3: Verticality and Precision
@@ -307,9 +313,10 @@ function die() {
 /* ================= DRAW ================= */
 /* ================= DRAW ================= */
 function draw() {
-    // Parallax Background
-    // Increased parallax factor to make movement more obvious
-    const bgScrollX = (camera.x * 0.5) % canvas.width;
+    // Parallax Background + Auto Move (Clouds effect)
+    // camera.x * 0.5 for parallax, + Date.now() * 0.05 for constant cloud movement
+    const cloudOffset = Date.now() * 0.05;
+    const bgScrollX = (camera.x * 0.5 + cloudOffset) % canvas.width;
     ctx.drawImage(bgImg, -bgScrollX, 0, canvas.width, canvas.height);
     ctx.drawImage(bgImg, -bgScrollX + canvas.width, 0, canvas.width, canvas.height); // Tiled
     ctx.drawImage(bgImg, -bgScrollX - canvas.width, 0, canvas.width, canvas.height); // Tiled left
@@ -344,19 +351,12 @@ function draw() {
             ctx.scale(-1, 1);
             ctx.translate(-(player.x + player.w / 2), -(player.y + player.h / 2));
         }
+        // Default Draw
         const drawW = player.w * PLAYER_DRAW_SCALE;
         const drawH = player.h * PLAYER_DRAW_SCALE;
         const drawX = player.x - (drawW - player.w) / 2;
         const drawY = player.y - (drawH - player.h) / 2;
         ctx.drawImage(wizardImg, drawX, drawY, drawW, drawH);
-        // Wand Swoosh Logic (Only draw wand here if NOT winning, because winning has special animation below)
-        if (levelWin && winTimer < 10) {
-            // Small swoosh at start of win
-            ctx.translate(player.x + player.w * 0.8, player.y + player.h * 0.4);
-            ctx.rotate(wandAngle);
-            ctx.fillStyle = "#8B4513";
-            ctx.fillRect(0, -2, 50, 4);
-        }
         ctx.restore();
     }
     // Particles
@@ -392,63 +392,56 @@ function draw() {
         ctx.textAlign = "left";
     }
     if (levelWin) {
-        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.fillStyle = "rgba(0,0,0,0.6)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        const txt = "LEVEL COMPLETED";
-        ctx.font = "bold 60px Arial";
-        const textW = ctx.measureText(txt).width;
-        const startX = (canvas.width - textW) / 2;
+        const centerX = canvas.width / 2;
         const centerY = canvas.height / 2;
-        // "Writing" animation
-        const totalDuration = 100; // frames to write
-        const progress = Math.min(1, winTimer / totalDuration);
-        const charsToShow = Math.floor(txt.length * progress);
-        const currentStr = txt.substring(0, charsToShow);
-        // Draw the text revealed so far
+        // Animation Phase: Wand Raise
+        // Duration: 60 frames (1 sec)
+        const raisePhase = Math.min(1, winTimer / 60);
+        // Wand Position: Starts low, moves up
+        const startWandY = centerY + 100;
+        const endWandY = centerY - 50;
+        const currentWandY = startWandY + (endWandY - startWandY) * raisePhase; // Linear interp
+        // Draw the Wand Raising
         ctx.save();
-        ctx.shadowColor = "cyan";
+        ctx.translate(centerX, currentWandY);
+        ctx.rotate(0); // Upright wand
+        ctx.fillStyle = "#8B4513";
+        ctx.fillRect(-4, 0, 8, 80); // Wand handle (vertical)
+        // Flashing tip
+        ctx.shadowColor = "white";
         ctx.shadowBlur = 20;
-        ctx.fillStyle = "white";
-        ctx.textAlign = "left";
-        ctx.fillText(currentStr, startX, centerY);
+        ctx.fillStyle = `rgba(255, 255, 255, ${0.5 + Math.random() * 0.5})`;
+        ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
-        // Magical Wand flying at the tip of the text
-        if (progress < 1) {
-            // Estimate position of the next character
-            const currentW = ctx.measureText(currentStr).width;
-            const wandX = startX + currentW;
-            const wandY = centerY - 20; // Slightly above baseline
-            // Draw floating wand
+        // Spawn sparkles along the path
+        if (raisePhase < 1) {
+            spawnSparkle(centerX + camera.x + (Math.random() - 0.5) * 20, currentWandY + camera.y, "cyan");
+        }
+        // Text Reveal Phase
+        if (raisePhase >= 1) {
+            // Boom! Text appears
+            const textScale = Math.min(1, (winTimer - 60) / 20); // Quick pop
             ctx.save();
-            ctx.translate(wandX, wandY);
-            const wiggle = Math.sin(winTimer * 0.3) * 0.5;
-            ctx.rotate(Math.PI / 4 + wiggle); // Angled 45 deg
-            ctx.fillStyle = "#8B4513";
-            ctx.fillRect(-5, 0, 80, 6); // Wand stick
-            ctx.fillStyle = "white"; // Tip
-            ctx.beginPath(); ctx.arc(0, 3, 5, 0, Math.PI * 2); ctx.fill();
-            // Spawn sparkles at the writing tip!
-            for (let k = 0; k < 3; k++) {
-                particles.push({
-                    x: wandX + camera.x, // Convert to world space for the particle system
-                    y: wandY + camera.y,
-                    vx: (Math.random() - 0.5) * 10,
-                    vy: (Math.random() - 0.5) * 10,
-                    life: 40,
-                    color: `hsl(${Math.random() * 360}, 100%, 70%)`
-                });
-            }
-            ctx.restore();
-        } else {
-            // Text is done, show final sparkles or "Magical" text
-            ctx.save();
-            ctx.fillStyle = "gold";
-            ctx.font = "italic 30px Arial";
+            ctx.translate(centerX, centerY);
+            ctx.scale(textScale, textScale);
+            ctx.shadowColor = "cyan";
+            ctx.shadowBlur = 30;
+            ctx.fillStyle = "white";
+            ctx.font = "bold 60px Arial";
             ctx.textAlign = "center";
+            ctx.fillText("LEVEL COMPLETED", 0, 0);
             ctx.shadowColor = "gold";
-            ctx.shadowBlur = 10;
-            ctx.fillText("Magical!", canvas.width / 2, centerY + 60);
+            ctx.font = "italic 30px Arial";
+            ctx.fillText("Magical!", 0, 50);
             ctx.restore();
+            // Continuous sparkles around text
+            if (Math.random() < 0.2) {
+                const tx = centerX + camera.x + (Math.random() - 0.5) * 400;
+                const ty = centerY + camera.y + (Math.random() - 0.5) * 100;
+                spawnSparkle(tx, ty, Math.random() < 0.5 ? "gold" : "white");
+            }
         }
     }
 }
@@ -457,9 +450,6 @@ function loop() {
     update();
     draw();
     requestAnimationFrame(loop);
-}
-loadLevel(0);
-loop();
 
 
 
