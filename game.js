@@ -5,9 +5,9 @@ const ctx = canvas.getContext("2d");
 /* ================= CONSTANTS ================= */
 const GRAVITY = 0.9;
 const MOVE_SPEED = 4;
-const JUMP_FORCE = 16;
+const JUMP_FORCE = 15;
 const FAST_FALL = 1.8;
-const FALL_LIMIT = canvas.height + 50;
+const FALL_DEATH_Y = canvas.height + 80;
 
 /* ================= STATE ================= */
 let currentLevel = 0;
@@ -15,6 +15,7 @@ let gameOver = false;
 let levelComplete = false;
 let finalWin = false;
 let winTimer = 0;
+let rotateAngle = 0;
 
 /* ================= BACKGROUND ================= */
 let cloudX1 = 0;
@@ -58,14 +59,14 @@ const player = {
   onGround: false
 };
 
-/* ================= PARTICLES ================= */
+/* ================= WAND SPARKLES ================= */
 let particles = [];
-function spawnParticles(x, y) {
-  for (let i = 0; i < 25; i++) {
+function spawnSparkles(x, y) {
+  for (let i = 0; i < 18; i++) {
     particles.push({
       x, y,
-      vx: (Math.random() - 0.5) * 3,
-      vy: -Math.random() * 3,
+      vx: (Math.random() - 0.5) * 2,
+      vy: -Math.random() * 2.5,
       life: 40
     });
   }
@@ -74,22 +75,22 @@ function spawnParticles(x, y) {
 /* ================= LEVELS ================= */
 const levels = [
   {
-    start: { x: 80, y: 350 },
+    start: { x: 80, y: 360 },
     blocks: [
       { x: 0, y: 500, w: 960, h: 40 },
-      { x: 280, y: 420, w: 140, h: 28 },
-      { x: 540, y: 340, w: 140, h: 28 }
+      { x: 300, y: 420, w: 160, h: 28 },
+      { x: 580, y: 340, w: 160, h: 28 }
     ],
-    spikes: [{ x: 420, y: 460, w: 40, h: 40 }],
+    spikes: [{ x: 450, y: 460, w: 40, h: 40 }],
     castle: { x: 760, y: 120, w: 160, h: 180 }
   },
   {
-    start: { x: 60, y: 350 },
+    start: { x: 60, y: 360 },
     blocks: [
       { x: 0, y: 500, w: 960, h: 40 },
-      { x: 200, y: 420, w: 120, h: 26 },
-      { x: 420, y: 340, w: 120, h: 26 },
-      { x: 640, y: 260, w: 120, h: 26 }
+      { x: 220, y: 420, w: 120, h: 26 },
+      { x: 440, y: 340, w: 120, h: 26 },
+      { x: 660, y: 260, w: 120, h: 26 }
     ],
     spikes: [
       { x: 160, y: 460, w: 40, h: 40 },
@@ -99,11 +100,11 @@ const levels = [
     castle: { x: 760, y: 40, w: 160, h: 180 }
   },
   {
-    start: { x: 40, y: 350 },
+    start: { x: 40, y: 360 },
     blocks: [
       { x: 0, y: 500, w: 960, h: 40 },
-      { x: 150, y: 420, w: 90, h: 24 },
-      { x: 320, y: 340, w: 90, h: 24 },
+      { x: 160, y: 420, w: 90, h: 24 },
+      { x: 330, y: 340, w: 90, h: 24 },
       { x: 500, y: 260, w: 90, h: 24 },
       { x: 680, y: 180, w: 90, h: 24 }
     ],
@@ -135,6 +136,7 @@ function loadLevel(i) {
   gameOver = false;
   levelComplete = false;
   winTimer = 0;
+  rotateAngle = 0;
   particles = [];
 }
 
@@ -162,10 +164,13 @@ function update() {
 
   if (gameOver || finalWin) return;
 
+  /* ---- LEVEL COMPLETE STATE ---- */
   if (levelComplete) {
     winTimer++;
-    spawnParticles(player.x + player.w / 2, player.y + 20);
-    if (winTimer > 120) {
+    rotateAngle += 0.02;
+    spawnSparkles(player.x + player.w / 2, player.y + 20);
+
+    if (winTimer > 140) {
       currentLevel++;
       if (currentLevel < levels.length) loadLevel(currentLevel);
       else finalWin = true;
@@ -173,34 +178,39 @@ function update() {
     return;
   }
 
-  /* ---- MOVEMENT ---- */
+  /* ---- MOVEMENT (PLAYER ONLY) ---- */
   player.vx =
     (keys.ArrowLeft ? -MOVE_SPEED : 0) +
     (keys.ArrowRight ? MOVE_SPEED : 0);
-
-  if (keys.ArrowDown) player.vy += FAST_FALL;
 
   if (keys.Space && player.onGround) {
     player.vy = -JUMP_FORCE;
     player.onGround = false;
   }
 
+  if (keys.ArrowDown) player.vy += FAST_FALL;
+
   /* ---- PHYSICS ---- */
   player.vy += GRAVITY;
   player.x += player.vx;
   player.y += player.vy;
 
+  /* ---- PLATFORM COLLISION (NO AUTO CLIMB) ---- */
   player.onGround = false;
   blocks.forEach(b => {
-    if (hit(player, b) && player.vy >= 0) {
+    if (
+      hit(player, b) &&
+      player.vy >= 0 &&
+      player.y + player.h - player.vy <= b.y + 6
+    ) {
       player.y = b.y - player.h;
       player.vy = 0;
       player.onGround = true;
     }
   });
 
-  /* ---- DEATH RULES ---- */
-  if (!player.onGround && player.y > FALL_LIMIT) {
+  /* ---- DEATH ---- */
+  if (player.y > FALL_DEATH_Y) {
     gameOver = true;
     deathSound.play().catch(() => {});
   }
@@ -219,6 +229,7 @@ function update() {
     player.vy = 0;
   }
 
+  /* ---- PARTICLES ---- */
   particles.forEach(p => {
     p.x += p.vx;
     p.y += p.vy;
@@ -246,7 +257,7 @@ function draw() {
   ctx.drawImage(wizardImg, player.x, player.y, player.w, player.h);
 
   particles.forEach(p => {
-    ctx.fillStyle = "rgba(255,215,150,0.8)";
+    ctx.fillStyle = "rgba(255,215,160,0.8)";
     ctx.fillRect(p.x, p.y, 4, 4);
   });
 
@@ -262,8 +273,12 @@ function draw() {
   }
 
   if (levelComplete) {
+    ctx.save();
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate(Math.sin(rotateAngle) * 0.15);
     ctx.font = "32px Arial";
-    ctx.fillText("LEVEL COMPLETED", 300, 260);
+    ctx.fillText("LEVEL COMPLETED", -140, 0);
+    ctx.restore();
   }
 
   if (finalWin) {
@@ -281,6 +296,7 @@ function loop() {
 
 loadLevel(0);
 loop();
+
 
 
 
