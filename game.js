@@ -332,18 +332,7 @@ function loop() {
     draw();
     requestAnimationFrame(loop);
 }
-
-
-
-
-
-
-
-
-
-
-
-
+loop();
 
 
 
