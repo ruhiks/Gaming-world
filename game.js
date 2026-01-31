@@ -3,10 +3,11 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
 /* ================= CONSTANTS ================= */
-const GRAVITY = 0.8;
+const GRAVITY = 0.9;
 const MOVE_SPEED = 4;
-const JUMP_FORCE = 14;
-const FALL_DEATH_Y = canvas.height + 80;
+const JUMP_FORCE = 16;
+const FAST_FALL = 1.8;
+const FALL_LIMIT = canvas.height + 50;
 
 /* ================= STATE ================= */
 let currentLevel = 0;
@@ -20,7 +21,7 @@ let cloudX1 = 0;
 let cloudX2 = canvas.width;
 const CLOUD_SPEED = 0.25;
 
-/* ================= LOAD IMAGE ================= */
+/* ================= IMAGE LOADER ================= */
 const img = src => {
   const i = new Image();
   i.src = src;
@@ -57,15 +58,14 @@ const player = {
   onGround: false
 };
 
-/* ================= PARTICLES (WAND LIGHT) ================= */
+/* ================= PARTICLES ================= */
 let particles = [];
-
 function spawnParticles(x, y) {
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 25; i++) {
     particles.push({
       x, y,
-      vx: (Math.random() - 0.5) * 2,
-      vy: -Math.random() * 2,
+      vx: (Math.random() - 0.5) * 3,
+      vy: -Math.random() * 3,
       life: 40
     });
   }
@@ -130,6 +130,7 @@ function loadLevel(i) {
   player.y = l.start.y;
   player.vx = 0;
   player.vy = 0;
+  player.onGround = false;
 
   gameOver = false;
   levelComplete = false;
@@ -172,15 +173,19 @@ function update() {
     return;
   }
 
+  /* ---- MOVEMENT ---- */
   player.vx =
     (keys.ArrowLeft ? -MOVE_SPEED : 0) +
     (keys.ArrowRight ? MOVE_SPEED : 0);
+
+  if (keys.ArrowDown) player.vy += FAST_FALL;
 
   if (keys.Space && player.onGround) {
     player.vy = -JUMP_FORCE;
     player.onGround = false;
   }
 
+  /* ---- PHYSICS ---- */
   player.vy += GRAVITY;
   player.x += player.vx;
   player.y += player.vy;
@@ -194,7 +199,8 @@ function update() {
     }
   });
 
-  if (!player.onGround && player.y > FALL_DEATH_Y) {
+  /* ---- DEATH RULES ---- */
+  if (!player.onGround && player.y > FALL_LIMIT) {
     gameOver = true;
     deathSound.play().catch(() => {});
   }
@@ -206,6 +212,7 @@ function update() {
     }
   });
 
+  /* ---- WIN ---- */
   if (hit(player, castle)) {
     levelComplete = true;
     player.vx = 0;
@@ -274,14 +281,6 @@ function loop() {
 
 loadLevel(0);
 loop();
-
-
-
-
-
-
-
-
 
 
 
