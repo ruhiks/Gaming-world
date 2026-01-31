@@ -6,12 +6,15 @@ const ctx = canvas.getContext("2d");
 const GRAVITY = 0.6;
 const MOVE_SPEED = 4;
 const JUMP_FORCE = 13;
+const FALL_DEATH_Y = canvas.height + 100;
 
-/* ================= GAME STATE ================= */
+/* ================= STATE ================= */
 let gravityDir = 1;
 let gameOver = false;
 let levelComplete = false;
+let finalWin = false;
 let currentLevel = 0;
+let winTimer = 0;
 
 /* ================= CLOUD BACKGROUND ================= */
 let cloudX1 = 0;
@@ -58,7 +61,7 @@ const player = {
   onGround: false
 };
 
-/* ================= LEVELS ================= */
+/* ================= LEVEL DATA ================= */
 const levels = [
   {
     start: { x: 80, y: 360 },
@@ -67,9 +70,7 @@ const levels = [
       { x: 260, y: 420, w: 160, h: 30 },
       { x: 520, y: 340, w: 160, h: 30 }
     ],
-    spikes: [
-      { x: 380, y: 460, w: 40, h: 40 }
-    ],
+    spikes: [{ x: 380, y: 460, w: 40, h: 40 }],
     castle: { x: 760, y: 100, w: 160, h: 180 }
   },
   {
@@ -124,16 +125,14 @@ function loadLevel(i) {
   gravityDir = 1;
   gameOver = false;
   levelComplete = false;
+  winTimer = 0;
 }
 
 /* ================= INPUT ================= */
 const keys = {};
 window.addEventListener("keydown", e => {
   keys[e.code] = true;
-
-  if (gameOver && e.code === "KeyR") {
-    loadLevel(currentLevel);
-  }
+  if (gameOver && e.code === "KeyR") loadLevel(currentLevel);
 });
 window.addEventListener("keyup", e => keys[e.code] = false);
 
@@ -149,17 +148,27 @@ function hit(a, b) {
 
 /* ================= UPDATE ================= */
 function update() {
-  // floating clouds
+  // clouds
   cloudX1 -= CLOUD_SPEED;
   cloudX2 -= CLOUD_SPEED;
   if (cloudX1 <= -canvas.width) cloudX1 = canvas.width;
   if (cloudX2 <= -canvas.width) cloudX2 = canvas.width;
 
-  if (gameOver || levelComplete) return;
+  if (gameOver) return;
 
-  player.vx =
-    keys.ArrowLeft ? -MOVE_SPEED :
-    keys.ArrowRight ? MOVE_SPEED : 0;
+  if (levelComplete) {
+    winTimer++;
+    if (winTimer > 90) {
+      currentLevel++;
+      if (currentLevel < levels.length) loadLevel(currentLevel);
+      else finalWin = true;
+    }
+    return;
+  }
+
+  // movement
+  player.vx = keys.ArrowLeft ? -MOVE_SPEED :
+              keys.ArrowRight ? MOVE_SPEED : 0;
 
   if (keys.Space && player.onGround) {
     player.vy = -JUMP_FORCE * gravityDir;
@@ -176,6 +185,7 @@ function update() {
   player.y += player.vy;
   player.onGround = false;
 
+  // platform collision
   blocks.forEach(b => {
     if (hit(player, b)) {
       player.y = gravityDir === 1 ? b.y - player.h : b.y + b.h;
@@ -184,20 +194,25 @@ function update() {
     }
   });
 
+  // fall death
+  if (player.y > FALL_DEATH_Y || player.y + player.h < -100) {
+    gameOver = true;
+    deathSound.play().catch(() => {});
+  }
+
+  // spikes
   spikes.forEach(s => {
     if (hit(player, s)) {
       gameOver = true;
-      deathSound.currentTime = 0;
       deathSound.play().catch(() => {});
     }
   });
 
+  // castle win
   if (hit(player, castle)) {
     levelComplete = true;
-    setTimeout(() => {
-      currentLevel++;
-      if (currentLevel < levels.length) loadLevel(currentLevel);
-    }, 1200);
+    player.vx = 0;
+    player.vy = -8 * gravityDir; // victory jump
   }
 }
 
@@ -211,7 +226,7 @@ function draw() {
   blocks.forEach(b => ctx.drawImage(blockImg, b.x, b.y, b.w, b.h));
   spikes.forEach(s => ctx.drawImage(spikeImg, s.x, s.y, s.w, s.h));
 
-  // sparkling castle
+  // glowing castle
   const glow = 18 + Math.sin(Date.now() / 250) * 10;
   ctx.save();
   ctx.shadowColor = "rgba(255,215,120,0.9)";
@@ -236,6 +251,11 @@ function draw() {
     ctx.font = "32px Arial";
     ctx.fillText("LEVEL COMPLETED!", 320, 260);
   }
+
+  if (finalWin) {
+    ctx.font = "42px Arial";
+    ctx.fillText("DUNGEON CLEARED!", 250, 260);
+  }
 }
 
 /* ================= LOOP ================= */
@@ -245,7 +265,6 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-/* ================= START ================= */
 loadLevel(0);
 loop();
 
