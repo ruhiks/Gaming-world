@@ -3,11 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <title>Antigravity Wizard</title>
-
-  <!-- Mobile & scaling -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Prevent favicon 404 spam -->
+  <!-- Silence favicon warning -->
   <link rel="icon" href="data:,">
 
   <style>
@@ -15,10 +13,8 @@
       margin: 0;
       padding: 0;
       background: black;
-      width: 100%;
-      height: 100%;
       overflow: hidden;
-      font-family: Arial, sans-serif;
+      height: 100%;
     }
 
     canvas {
@@ -28,7 +24,6 @@
       image-rendering: pixelated;
     }
 
-    /* Optional small help text overlay */
     #hint {
       position: fixed;
       bottom: 10px;
@@ -41,22 +36,19 @@
     }
   </style>
 </head>
-
 <body>
 
-  <!-- GAME CANVAS -->
   <canvas id="gameCanvas" width="960" height="540"></canvas>
 
-  <!-- Optional controls hint -->
   <div id="hint">
-    ← → Move &nbsp;|&nbsp; Space Jump &nbsp;|&nbsp; G Flip Gravity
+    ← → Move | Space Jump | G Flip Gravity | R Retry
   </div>
 
-  <!-- GAME SCRIPT (must be after canvas) -->
   <script src="game.js"></script>
-
 </body>
 </html>
+
+
 
 
 
