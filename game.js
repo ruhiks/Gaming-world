@@ -1,47 +1,46 @@
-/* ================== CANVAS ================== */
+/* ================= CANVAS ================= */
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-/* ================== CONSTANTS ================== */
-const GRAVITY = 0.6;
+/* ================= CONSTANTS ================= */
+const GRAVITY = 0.65;
 const MOVE_SPEED = 4;
-const JUMP_FORCE = 14;
+const JUMP_FORCE = 13.5;
 
-/* ================== STATE ================== */
+/* ================= GAME STATE ================= */
 let gravityDir = 1;
 let gameOver = false;
 let finalWin = false;
 let currentLevel = 0;
 
-/* ================== BACKGROUND CLOUDS ================== */
+/* ================= CLOUD BACKGROUND ================= */
 let cloudX1 = 0;
 let cloudX2 = canvas.width;
-const CLOUD_SPEED = 0.25;
+const CLOUD_SPEED = 0.35;
 
-/* ================== IMAGE LOADER ================== */
+/* ================= IMAGE LOADER ================= */
 function loadImage(src) {
   const img = new Image();
   img.src = src;
   return img;
 }
 
-/* ================== ASSETS ================== */
+/* ================= ASSETS ================= */
 const bgImg = loadImage("assets/bg.png");
 const wizardImg = loadImage("assets/wizard.png");
 const blockImg = loadImage("assets/block.png");
 const spikeImg = loadImage("assets/spike.png");
 const castleImg = loadImage("assets/castle.png");
 
-/* ================== MUSIC ================== */
-const bgm = new Audio("assets/music.mp3");
+/* ================= AUDIO ================= */
+const bgm = new Audio("assets/music.mp3");   // NEW music
 bgm.loop = true;
 bgm.volume = 0.4;
 
 const deathSound = new Audio("assets/death.mp3");
-deathSound.volume = 0.7;
+deathSound.volume = 0.8;
 
 let musicStarted = false;
-
 function startMusic() {
   if (!musicStarted) {
     bgm.play().catch(() => {});
@@ -51,7 +50,7 @@ function startMusic() {
 window.addEventListener("keydown", startMusic, { once: true });
 window.addEventListener("mousedown", startMusic, { once: true });
 
-/* ================== PLAYER ================== */
+/* ================= PLAYER ================= */
 const player = {
   x: 0,
   y: 0,
@@ -62,56 +61,63 @@ const player = {
   onGround: false
 };
 
-/* ================== LEVEL DATA ================== */
+/* ================= LEVEL DATA ================= */
 const levels = [
-  // -------- LEVEL 1 --------
+  // LEVEL 1
   {
     start: { x: 100, y: 320 },
     blocks: [
       { x: 0, y: 500, w: 960, h: 40 },
-      { x: 220, y: 420, w: 160, h: 30 },
-      { x: 440, y: 340, w: 160, h: 30 },
-      { x: 660, y: 260, w: 160, h: 30 }
+      { x: 240, y: 420, w: 140, h: 28 },
+      { x: 460, y: 340, w: 140, h: 28 },
+      { x: 680, y: 260, w: 120, h: 28 }
     ],
     spikes: [
-      { x: 350, y: 460, w: 40, h: 40 }
+      { x: 180, y: 460, w: 40, h: 40 },
+      { x: 360, y: 460, w: 40, h: 40 },
+      { x: 540, y: 460, w: 40, h: 40 }
     ],
-    castle: { x: 760, y: 80, w: 160, h: 180 }
+    castle: { x: 760, y: 90, w: 160, h: 180 }
   },
 
-  // -------- LEVEL 2 (harder) --------
+  // LEVEL 2 (harder)
   {
-    start: { x: 80, y: 360 },
+    start: { x: 70, y: 360 },
     blocks: [
       { x: 0, y: 500, w: 960, h: 40 },
-      { x: 180, y: 420, w: 140, h: 30 },
-      { x: 380, y: 340, w: 140, h: 30 },
-      { x: 580, y: 260, w: 140, h: 30 },
-      { x: 380, y: 140, w: 140, h: 30 }
+      { x: 170, y: 420, w: 120, h: 26 },
+      { x: 360, y: 340, w: 120, h: 26 },
+      { x: 550, y: 260, w: 120, h: 26 },
+      { x: 360, y: 160, w: 110, h: 26 }
     ],
     spikes: [
-      { x: 300, y: 470, w: 40, h: 40 },
-      { x: 520, y: 300, w: 40, h: 40 }
+      { x: 120, y: 460, w: 40, h: 40 },
+      { x: 300, y: 460, w: 40, h: 40 },
+      { x: 480, y: 460, w: 40, h: 40 },
+      { x: 420, y: 300, w: 40, h: 40 },
+      { x: 600, y: 220, w: 40, h: 40 }
     ],
-    castle: { x: 100, y: 20, w: 160, h: 180 }
+    castle: { x: 90, y: 30, w: 160, h: 180 }
   },
 
-  // -------- LEVEL 3 (hard) --------
+  // LEVEL 3 (dungeon mastery)
   {
-    start: { x: 60, y: 360 },
+    start: { x: 60, y: 380 },
     blocks: [
       { x: 0, y: 500, w: 960, h: 40 },
-      { x: 140, y: 420, w: 120, h: 30 },
-      { x: 300, y: 340, w: 120, h: 30 },
-      { x: 460, y: 260, w: 120, h: 30 },
-      { x: 620, y: 180, w: 120, h: 30 },
-      { x: 300, y: 60, w: 120, h: 30 }
+      { x: 130, y: 420, w: 100, h: 24 },
+      { x: 290, y: 340, w: 100, h: 24 },
+      { x: 450, y: 260, w: 100, h: 24 },
+      { x: 610, y: 180, w: 100, h: 24 },
+      { x: 290, y: 80,  w: 100, h: 24 }
     ],
     spikes: [
-      { x: 200, y: 470, w: 40, h: 40 },
-      { x: 360, y: 380, w: 40, h: 40 },
-      { x: 520, y: 300, w: 40, h: 40 },
-      { x: 680, y: 220, w: 40, h: 40 }
+      { x: 90,  y: 460, w: 40, h: 40 },
+      { x: 250, y: 460, w: 40, h: 40 },
+      { x: 410, y: 460, w: 40, h: 40 },
+      { x: 570, y: 460, w: 40, h: 40 },
+      { x: 350, y: 300, w: 40, h: 40 },
+      { x: 510, y: 220, w: 40, h: 40 }
     ],
     castle: { x: 760, y: 0, w: 160, h: 180 }
   }
@@ -121,16 +127,15 @@ let blocks = [];
 let spikes = [];
 let castle = {};
 
-/* ================== LOAD LEVEL ================== */
-function loadLevel(index) {
-  const lvl = levels[index];
+/* ================= LOAD LEVEL ================= */
+function loadLevel(i) {
+  const l = levels[i];
+  blocks = l.blocks;
+  spikes = l.spikes;
+  castle = l.castle;
 
-  blocks = lvl.blocks;
-  spikes = lvl.spikes;
-  castle = lvl.castle;
-
-  player.x = lvl.start.x;
-  player.y = lvl.start.y;
+  player.x = l.start.x;
+  player.y = l.start.y;
   player.vx = 0;
   player.vy = 0;
   player.onGround = false;
@@ -139,12 +144,12 @@ function loadLevel(index) {
   gameOver = false;
 }
 
-/* ================== INPUT ================== */
+/* ================= INPUT ================= */
 const keys = {};
 window.addEventListener("keydown", e => keys[e.code] = true);
 window.addEventListener("keyup", e => keys[e.code] = false);
 
-/* ================== COLLISION ================== */
+/* ================= COLLISION ================= */
 function collide(a, b) {
   return (
     a.x < b.x + b.w &&
@@ -154,20 +159,19 @@ function collide(a, b) {
   );
 }
 
-/* ================== UPDATE ================== */
+/* ================= UPDATE ================= */
 function update() {
   if (gameOver || finalWin) return;
 
-  // Clouds
+  // clouds
   cloudX1 -= CLOUD_SPEED;
   cloudX2 -= CLOUD_SPEED;
   if (cloudX1 <= -canvas.width) cloudX1 = canvas.width;
   if (cloudX2 <= -canvas.width) cloudX2 = canvas.width;
 
-  // Movement
-  if (keys.ArrowLeft) player.vx = -MOVE_SPEED;
-  else if (keys.ArrowRight) player.vx = MOVE_SPEED;
-  else player.vx = 0;
+  // movement
+  player.vx = keys.ArrowLeft ? -MOVE_SPEED :
+              keys.ArrowRight ? MOVE_SPEED : 0;
 
   if (keys.Space && player.onGround) {
     player.vy = -JUMP_FORCE * gravityDir;
@@ -179,13 +183,13 @@ function update() {
     keys.KeyG = false;
   }
 
-  // Physics
+  // physics
   player.vy += GRAVITY * gravityDir;
   player.x += player.vx;
   player.y += player.vy;
   player.onGround = false;
 
-  // Platforms
+  // platforms
   blocks.forEach(b => {
     if (collide(player, b)) {
       player.y = gravityDir === 1 ? b.y - player.h : b.y + b.h;
@@ -194,7 +198,7 @@ function update() {
     }
   });
 
-  // Spikes
+  // spikes
   spikes.forEach(s => {
     if (collide(player, s)) {
       gameOver = true;
@@ -203,7 +207,7 @@ function update() {
     }
   });
 
-  // Castle → next level
+  // castle → next level
   if (collide(player, castle)) {
     currentLevel++;
     if (currentLevel < levels.length) {
@@ -214,7 +218,7 @@ function update() {
   }
 }
 
-/* ================== DRAW ================== */
+/* ================= DRAW ================= */
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -223,36 +227,121 @@ function draw() {
 
   blocks.forEach(b => ctx.drawImage(blockImg, b.x, b.y, b.w, b.h));
   spikes.forEach(s => ctx.drawImage(spikeImg, s.x, s.y, s.w, s.h));
+
+  // ✨ Sparkling castle
+  const glow = 18 + Math.sin(Date.now() / 300) * 10;
+  ctx.save();
+  ctx.shadowColor = "rgba(255, 215, 120, 0.9)";
+  ctx.shadowBlur = glow;
   ctx.drawImage(castleImg, castle.x, castle.y, castle.w, castle.h);
+  ctx.restore();
+
   ctx.drawImage(wizardImg, player.x, player.y, player.w, player.h);
 
   ctx.fillStyle = "white";
   ctx.font = "18px Arial";
-  ctx.fillText(`Level ${currentLevel + 1}`, 20, 30);
+  ctx.fillText(`Dungeon Level ${currentLevel + 1}`, 20, 30);
 
   if (gameOver) {
     ctx.font = "40px Arial";
     ctx.fillText("YOU DIED", 360, 260);
-    ctx.font = "20px Arial";
-    ctx.fillText("Press Ctrl + R to Restart", 320, 300);
+    ctx.font = "18px Arial";
+    ctx.fillText("Press Ctrl + R to Retry", 330, 300);
   }
 
   if (finalWin) {
     ctx.font = "42px Arial";
-    ctx.fillText("YOU MASTERED GRAVITY!", 200, 260);
+    ctx.fillText("DUNGEON CLEARED!", 240, 260);
   }
 }
 
-/* ================== LOOP ================== */
+/* ================= LOOP ================= */
 function loop() {
   update();
   draw();
   requestAnimationFrame(loop);
 }
 
-/* ================== START ================== */
+/* ================= START ================= */
 loadLevel(0);
 loop();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
