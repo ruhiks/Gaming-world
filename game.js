@@ -1,251 +1,519 @@
-/* ================= CANVAS ================= */
+/* ================= CANVAS & SETUP ================= */
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
+// Make canvas full screen or fixed size? Let's go with fixed size for gameplay
+// but responsive CSS handles the rest.
+canvas.width = 1000;
+canvas.height = 600;
+
 /* ================= CONSTANTS ================= */
-const GRAVITY = 0.8;
-const SPEED = 4;
-const JUMP = 15;
-const FALL_DEATH_Y = canvas.height + 100;
+const GRAVITY = 0.6;
+const FRICTION = 0.8;
+const MOVE_ACCEL = 0.8;
+const MAX_SPEED = 8;
+const JUMP_FORCE = 14;
+const FALL_DEATH_Y = 2000; // Death if you fall too far
+
+// "Little Big" Character dimensions
+// We'll make the hit box smaller than the visual sprite for better feel
+const PLAYER_W = 60;
+const PLAYER_H = 90;
+const PLAYER_DRAW_SCALE = 1.4; // Visuals are bigger
 
 /* ================= STATE ================= */
 let levelIndex = 0;
 let gameOver = false;
 let levelWin = false;
 let winTimer = 0;
-let rotate = 0;
+let transitionRotate = 0;
+let wandAngle = 0;
+
+// Camera
+const camera = { x: 0, y: 0 };
 
 /* ================= ASSETS ================= */
 const load = src => {
-  const i = new Image();
-  i.src = src;
-  return i;
+    const i = new Image();
+    i.src = src;
+    return i;
 };
 
-const bg = load("assets/bg.png");
-const wizard = load("assets/wizard.png");
+const bgImg = load("assets/bg.png");
+const wizardImg = load("assets/wizard.png");
 const blockImg = load("assets/block.png");
 const castleImg = load("assets/castle.png");
+const spikeImg = load("assets/spike.png");
 
-/* ================= AUDIO ================= */
+// Audio (Placeholder handlers)
+// If files exist, they will play. If not, catch suppresses errors.
 const bgm = new Audio("assets/music.mp3");
 bgm.loop = true;
-bgm.volume = 0.4;
-
+bgm.volume = 0.3;
 const deathSound = new Audio("assets/death.mp3");
 
 let audioStarted = false;
 window.addEventListener("keydown", () => {
-  if (!audioStarted) {
-    bgm.play().catch(() => {});
-    audioStarted = true;
-  }
+    if (!audioStarted) {
+        bgm.play().catch(() => { });
+        audioStarted = true;
+    }
 }, { once: true });
 
 /* ================= PLAYER ================= */
 const player = {
-  x: 0, y: 0,
-  w: 96, h: 128,
-  vx: 0, vy: 0,
-  onGround: false
+    x: 100,
+    y: 100,
+    w: PLAYER_W,
+    h: PLAYER_H,
+    vx: 0,
+    vy: 0,
+    onGround: false,
+    facingRight: true
 };
 
-/* ================= SPARKLES ================= */
+/* ================= PARTICLES ================= */
 let particles = [];
-function sparkle(x, y) {
-  for (let i = 0; i < 20; i++) {
-    particles.push({
-      x, y,
-      vx: (Math.random() - 0.5) * 2,
-      vy: -Math.random() * 2,
-      life: 40
-    });
-  }
+function spawnSparkle(x, y, color = "gold") {
+    for (let i = 0; i < 5; i++) {
+        particles.push({
+            x, y,
+            vx: (Math.random() - 0.5) * 5,
+            vy: (Math.random() - 0.5) * 5,
+            life: 30 + Math.random() * 20,
+            color: color
+        });
+    }
 }
 
 /* ================= LEVELS ================= */
+// Helper to create blocks more easily
+const B = (x, y, w, h) => ({ x, y, w, h });
+const S = (x, y) => ({ x, y, w: 40, h: 60 }); // Standard spike size
+
 const levels = [
-  {
-    start: { x: 80, y: 360 },
-    blocks: [
-      { x: 0, y: 500, w: 960, h: 40 },
-      { x: 320, y: 420, w: 160, h: 28 },
-      { x: 580, y: 340, w: 160, h: 28 }
-    ],
-    castle: { x: 760, y: 120, w: 160, h: 180 }
-  },
-  {
-    start: { x: 60, y: 360 },
-    blocks: [
-      { x: 0, y: 500, w: 960, h: 40 },
-      { x: 240, y: 420, w: 120, h: 26 },
-      { x: 440, y: 340, w: 120, h: 26 },
-      { x: 640, y: 260, w: 120, h: 26 }
-    ],
-    castle: { x: 760, y: 60, w: 160, h: 180 }
-  },
-  {
-    start: { x: 40, y: 360 },
-    blocks: [
-      { x: 0, y: 500, w: 960, h: 40 },
-      { x: 160, y: 420, w: 90, h: 24 },
-      { x: 320, y: 340, w: 90, h: 24 },
-      { x: 480, y: 260, w: 90, h: 24 },
-      { x: 640, y: 180, w: 90, h: 24 }
-    ],
-    castle: { x: 760, y: 0, w: 180, h: 200 }
-  }
+    // LEVEL 1: Introduction
+    {
+        start: { x: 100, y: 300 },
+        blocks: [
+            B(0, 500, 800, 100),   // Start platform
+            B(900, 450, 200, 50),
+            B(1200, 350, 200, 50),
+            B(1500, 250, 300, 50), // Before castle
+            B(-200, 0, 100, 600)   // Left wall
+        ],
+        spikes: [
+            S(500, 440), // First spike safe test
+            S(1000, 450 + 50) // Spike below gap
+        ],
+        castle: { x: 1600, y: 50, w: 140, h: 200 },
+        width: 2000
+    },
+
+    // LEVEL 2: More Spikes & Height
+    {
+        start: { x: 100, y: 400 },
+        blocks: [
+            B(0, 500, 400, 100),
+            B(500, 500, 400, 100),
+            B(1000, 400, 150, 40),
+            B(1300, 300, 150, 40),
+            B(1600, 200, 400, 40),
+            B(2100, 300, 200, 40)
+        ],
+        spikes: [
+            S(420, 500), S(450, 500), // Spikes in gap
+            S(950, 550),              // Ground spike
+            S(1100, 400 - 60),        // Jump over spike
+            S(1700, 200 - 60),
+            S(1800, 200 - 60)
+        ],
+        castle: { x: 2150, y: 100, w: 140, h: 200 },
+        width: 2500
+    },
+
+    // LEVEL 3: Verticality and Precision
+    {
+        start: { x: 100, y: 500 },
+        blocks: [
+            B(0, 550, 300, 50),
+            B(400, 450, 100, 30),
+            B(600, 350, 100, 30),
+            B(800, 250, 100, 30),
+            B(500, 150, 200, 30), // Middle platform
+            B(200, 50, 200, 30),  // High platform
+            B(1000, 350, 100, 30),
+            B(1200, 450, 500, 50) // End platform
+        ],
+        spikes: [
+            S(150, 550 - 60),
+            S(650, 350 - 60),
+            S(550, 150 - 60),
+            S(1300, 450 - 60),
+            S(1400, 450 - 60)
+        ],
+        castle: { x: 1500, y: 250, w: 140, h: 200 },
+        width: 2000
+    }
 ];
 
 let blocks = [];
+let spikes = [];
 let castle = {};
+let levelWidth = 0;
 
-/* ================= LOAD LEVEL ================= */
+/* ================= GAME LOGIC ================= */
 function loadLevel(i) {
-  const l = levels[i];
-  blocks = l.blocks;
-  castle = l.castle;
+    if (i >= levels.length) i = 0; // Loop back or end logic
+    levelIndex = i;
+    const l = levels[i];
 
-  player.x = l.start.x;
-  player.y = l.start.y;
-  player.vx = 0;
-  player.vy = 0;
-  player.onGround = false;
+    blocks = l.blocks;
+    spikes = l.spikes;
+    castle = l.castle;
+    levelWidth = l.width;
 
-  gameOver = false;
-  levelWin = false;
-  winTimer = 0;
-  rotate = 0;
-  particles = [];
+    player.x = l.start.x;
+    player.y = l.start.y;
+    player.vx = 0;
+    player.vy = 0;
+    player.onGround = false;
+
+    gameOver = false;
+    levelWin = false;
+    winTimer = 0;
+    transitionRotate = 0;
+    particles = [];
+    wandAngle = 0;
 }
 
-/* ================= INPUT ================= */
 const keys = {};
 window.addEventListener("keydown", e => {
-  keys[e.code] = true;
-  if (gameOver && e.code === "KeyR") loadLevel(levelIndex);
+    keys[e.code] = true;
+    if (gameOver && e.code === "KeyR") loadLevel(levelIndex);
 });
 window.addEventListener("keyup", e => keys[e.code] = false);
 
-/* ================= COLLISION ================= */
-const hit = (a, b) =>
-  a.x < b.x + b.w &&
-  a.x + a.w > b.x &&
-  a.y < b.y + b.h &&
-  a.y + a.h > b.y;
+// AABB Collision
+const rectIntersect = (r1, r2) =>
+    r1.x < r2.x + r2.w &&
+    r1.x + r1.w > r2.x &&
+    r1.y < r2.y + r2.h &&
+    r1.y + r1.h > r2.y;
 
-/* ================= UPDATE ================= */
 function update() {
-  if (gameOver) return;
+    if (gameOver) return;
 
-  if (levelWin) {
-    winTimer++;
-    rotate += 0.03;
-    sparkle(player.x + player.w / 2, player.y + 30);
+    if (levelWin) {
+        winTimer++;
+        // Wand Swoosh Logic
+        wandAngle = Math.sin(winTimer * 0.1) * 1.5; // Back and forth wave
 
-    if (winTimer > 120) {
-      levelIndex++;
-      if (levelIndex < levels.length) loadLevel(levelIndex);
+        // Sparkles from wand tip
+        // We estimate tip position similar to draw loop but in world space logic
+        const tipX = player.x + player.w / 2 + (player.facingRight ? 1 : -1) * 40;
+        const tipY = player.y + player.h / 3;
+
+        // Shoot sparkles towards the center of screen where text will be?
+        // Or just explosion of sparkles
+        spawnSparkle(tipX, tipY, `hsl(${winTimer * 10}, 100%, 70%)`);
+
+        // Also sparkles appearing in the center for the text
+        if (winTimer > 30) {
+            const cx = camera.x + canvas.width / 2 + (Math.random() - 0.5) * 300;
+            const cy = camera.y + canvas.height / 2 + (Math.random() - 0.5) * 100;
+            spawnSparkle(cx, cy, "white");
+        }
+
+        // Float player up
+        player.y -= 0.5;
+        player.onGround = false;
+
+        if (winTimer > 240) { // 4 seconds (longer to appreciate the effect)
+            loadLevel(levelIndex + 1);
+        }
+        return;
     }
-    return;
-  }
 
-  /* Movement */
-  player.vx = 0;
-  if (keys.ArrowLeft) player.vx = -SPEED;
-  if (keys.ArrowRight) player.vx = SPEED;
+    /* Movement Physics */
+    if (keys.ArrowLeft) {
+        player.vx -= MOVE_ACCEL;
+        player.facingRight = false;
+    }
+    if (keys.ArrowRight) {
+        player.vx += MOVE_ACCEL;
+        player.facingRight = true;
+    }
 
-  if (keys.Space && player.onGround) {
-    player.vy = -JUMP;
+    // Friction
+    player.vx *= FRICTION;
+
+    if (keys.Space && player.onGround) {
+        player.vy = -JUMP_FORCE;
+        player.onGround = false;
+        spawnSparkle(player.x + player.w / 2, player.y + player.h, "white");
+    }
+
+    player.vy += GRAVITY;
+
+    // Cap speed
+    if (player.vx > MAX_SPEED) player.vx = MAX_SPEED;
+    if (player.vx < -MAX_SPEED) player.vx = -MAX_SPEED;
+
+    player.x += player.vx;
+    player.y += player.vy;
+
+    /* Collision: Blocks */
     player.onGround = false;
-  }
+    blocks.forEach(b => {
+        // Basic Platformer Collision (checking previous position helps, but simple AABB usually fine for simple speeds)
+        // We only resolve collisions effectively if we are falling onto them usually, or push out.
+        // Simple approach: vertical resolution
+        if (rectIntersect(player, b)) {
+            // Check if we hit the top
+            // If we were above the block in previous frame... logic simplified:
+            // If vy > 0 and the bottom of player is roughly at top of block
+            const overlapY = (player.y + player.h) - b.y;
+            const overlapX = (player.x + player.w / 2) - (b.x + b.w / 2); // Center distance
 
-  player.vy += GRAVITY;
-  player.x += player.vx;
-  player.y += player.vy;
+            // Very simple "landing" check
+            if (player.vy >= 0 && (player.y + player.h - player.vy) <= b.y + 10) {
+                player.y = b.y - player.h;
+                player.vy = 0;
+                player.onGround = true;
+            }
+            // Ceiling check could go here
+            // Wall check could go here
+        }
+    });
 
-  /* Platforms */
-  player.onGround = false;
-  blocks.forEach(b => {
-    if (
-      hit(player, b) &&
-      player.vy >= 0 &&
-      player.y + player.h - player.vy <= b.y
-    ) {
-      player.y = b.y - player.h;
-      player.vy = 0;
-      player.onGround = true;
+    /* Collision: Spikes */
+    // Use a slightly smaller hitbox for spikes to be forgiving
+    const hitBox = {
+        x: player.x + 10,
+        y: player.y + 10,
+        w: player.w - 20,
+        h: player.h - 10
+    };
+    spikes.forEach(s => {
+        // Spike hitbox also smaller
+        const spikeBox = {
+            x: s.x + 10,
+            y: s.y + 10,
+            w: s.w - 20,
+            h: s.h - 10
+        };
+        if (rectIntersect(hitBox, spikeBox)) {
+            die();
+        }
+    });
+
+    /* Death by fall */
+    if (player.y > FALL_DEATH_Y) die();
+
+    /* Win */
+    if (rectIntersect(player, castle)) {
+        levelWin = true;
+        player.vx = 0;
+        player.vy = 0;
+        spawnSparkle(player.x, player.y, "gold");
     }
-  });
 
-  /* Death by fall */
-  if (player.y > FALL_DEATH_Y) {
+    /* Particles */
+    particles.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life--;
+    });
+    particles = particles.filter(p => p.life > 0);
+
+    /* Camera Logic */
+    // Camera follows player, centered on screen
+    let targetCamX = player.x - canvas.width / 2 + player.w / 2;
+    let targetCamY = player.y - canvas.height / 2 + player.h / 2;
+
+    // Clamp camera
+    if (targetCamX < 0) targetCamX = 0;
+    // if (targetCamX > levelWidth - canvas.width) targetCamX = levelWidth - canvas.width;
+
+    // Smooth follow
+    camera.x += (targetCamX - camera.x) * 0.1;
+    camera.y += (targetCamY - camera.y) * 0.1;
+    // Optional: Lock Y axis for simple platformers? "Movement everywhere" suggests free camera.
+    // We'll keep Y follow but maybe clamp it so we don't see too much empty void below.
+}
+
+function die() {
+    if (gameOver) return;
     gameOver = true;
-    deathSound.play().catch(() => {});
-  }
-
-  /* Win */
-  if (hit(player, castle)) {
-    levelWin = true;
-    player.vx = 0;
-    player.vy = 0;
-  }
-
-  particles.forEach(p => {
-    p.x += p.vx;
-    p.y += p.vy;
-    p.life--;
-  });
-  particles = particles.filter(p => p.life > 0);
+    deathSound.play().catch(() => { });
+    // Screen shake effect could be added here
 }
 
 /* ================= DRAW ================= */
 function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Parallax Background
+    // We draw the background fixed or scrolling slowly relative to camera
+    const bgScrollX = (camera.x * 0.2) % canvas.width;
+    ctx.drawImage(bgImg, -bgScrollX, 0, canvas.width, canvas.height);
+    ctx.drawImage(bgImg, -bgScrollX + canvas.width, 0, canvas.width, canvas.height); // Tiled
+    ctx.drawImage(bgImg, -bgScrollX - canvas.width, 0, canvas.width, canvas.height); // Tiled left just in case
 
-  ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
-
-  blocks.forEach(b => ctx.drawImage(blockImg, b.x, b.y, b.w, b.h));
-
-  ctx.save();
-  ctx.shadowColor = "gold";
-  ctx.shadowBlur = 20;
-  ctx.drawImage(castleImg, castle.x, castle.y, castle.w, castle.h);
-  ctx.restore();
-
-  ctx.drawImage(wizard, player.x, player.y, player.w, player.h);
-
-  particles.forEach(p => {
-    ctx.fillStyle = "rgba(255,215,160,0.8)";
-    ctx.fillRect(p.x, p.y, 4, 4);
-  });
-
-  ctx.fillStyle = "white";
-  ctx.font = "18px Arial";
-  ctx.fillText(`Dungeon Level ${levelIndex + 1}`, 20, 30);
-
-  if (gameOver) {
-    ctx.font = "40px Arial";
-    ctx.fillText("YOU DIED", 360, 260);
-    ctx.font = "20px Arial";
-    ctx.fillText("Press R to Retry", 360, 300);
-  }
-
-  if (levelWin) {
     ctx.save();
-    ctx.translate(canvas.width / 2, canvas.height / 2);
-    ctx.rotate(Math.sin(rotate) * 0.15);
-    ctx.font = "34px Arial";
-    ctx.fillText("LEVEL COMPLETED", -160, 0);
+    ctx.translate(-Math.floor(camera.x), -Math.floor(camera.y));
+
+    // Castle (Draw behind blocks maybe? No, typically target is on top or same layer)
+    // Glow effect
+    ctx.save();
+    ctx.shadowColor = "cyan"; // Magical blue/purple glow
+    ctx.shadowBlur = 30 + Math.sin(Date.now() / 200) * 15;
+    ctx.drawImage(castleImg, castle.x, castle.y, castle.w, castle.h);
+    // Add some sparkles around the castle constantly
+    // Intense magical sparks!
+    if (Math.random() < 0.3) {
+        const color = Math.random() < 0.5 ? "cyan" : "white";
+        spawnSparkle(castle.x + castle.w / 2 + (Math.random() - 0.5) * 60, castle.y + castle.h / 2 + (Math.random() - 0.5) * 90, color);
+    }
     ctx.restore();
-  }
+
+    // Blocks
+    blocks.forEach(b => {
+        ctx.drawImage(blockImg, b.x, b.y, b.w, b.h);
+    });
+
+    // Spikes
+    spikes.forEach(s => {
+        ctx.globalAlpha = 0.9;
+        ctx.drawImage(spikeImg, s.x, s.y, s.w, s.h);
+        ctx.globalAlpha = 1.0;
+    });
+
+    // Player
+    if (!gameOver) {
+        ctx.save();
+        // Flip sprite if moving left
+        if (!player.facingRight) {
+            ctx.translate(player.x + player.w / 2, player.y + player.h / 2);
+            ctx.scale(-1, 1);
+            ctx.translate(-(player.x + player.w / 2), -(player.y + player.h / 2));
+        }
+
+        // Draw bigger visual than hitbox
+        const drawW = player.w * PLAYER_DRAW_SCALE;
+        const drawH = player.h * PLAYER_DRAW_SCALE;
+        const drawX = player.x - (drawW - player.w) / 2;
+        const drawY = player.y - (drawH - player.h) / 2;
+
+        ctx.drawImage(wizardImg, drawX, drawY, drawW, drawH);
+
+        // Wand Swoosh Logic
+        if (levelWin) {
+            // Calculate wand position relative to player
+            const wandPivotX = player.x + player.w * 0.8;
+            const wandPivotY = player.y + player.h * 0.4;
+
+            ctx.translate(wandPivotX, wandPivotY);
+            ctx.rotate(wandAngle);
+
+            // Draw a simple magical wand overlay since sprite is static
+            ctx.fillStyle = "#8B4513"; // Wood
+            ctx.fillRect(0, -2, 50, 4); // Handle
+
+            // Magical tip
+            ctx.shadowColor = "white";
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = "#fff";
+            ctx.beginPath();
+            ctx.arc(50, 0, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Emit sparkles from the wand tip
+            // We do this in draw loop for visual sync or update loop. 
+            // Actually easier to just spawn visual particles in world space in update()
+            if (Math.random() < 0.5) {
+                // Transform local tip to world space for particles? 
+                // Actually easier to just spawn visual particles in world space in update()
+            }
+        }
+
+        ctx.restore();
+    }
+
+    // Particles
+    particles.forEach(p => {
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = Math.max(0, p.life / 30);
+        ctx.fillRect(p.x, p.y, p.size || 4, p.size || 4);
+    });
+    ctx.globalAlpha = 1.0;
+
+    ctx.restore(); // Restore camera translation
+
+    /* UI Layer (HUD) */
+    ctx.fillStyle = "white";
+    ctx.font = "bold 24px Arial";
+    ctx.shadowColor = "black";
+    ctx.shadowBlur = 4;
+    ctx.fillText(`Level ${levelIndex + 1}`, 20, 30);
+    ctx.shadowBlur = 0;
+
+    if (gameOver) {
+        ctx.fillStyle = "rgba(0,0,0,0.85)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.save();
+        ctx.shadowColor = "red";
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = "red";
+        ctx.font = "bold 80px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("YOU DIED", canvas.width / 2, canvas.height / 2 - 20);
+        ctx.restore();
+
+        ctx.fillStyle = "white";
+        ctx.font = "30px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("Press R to Try Again", canvas.width / 2, canvas.height / 2 + 60);
+        ctx.textAlign = "left";
+    }
+
+    if (levelWin) {
+        ctx.fillStyle = "rgba(0,0,0,0.3)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+
+        // Scale text up
+        const scale = Math.min(1, winTimer / 60); // 1 second to full scale
+
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.scale(scale, scale);
+
+        ctx.shadowColor = "cyan";
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = "white";
+        ctx.font = "bold 60px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("LEVEL COMPLETED", 0, 0);
+
+        ctx.shadowColor = "gold";
+        ctx.font = "italic 30px Arial";
+        if (scale >= 1) {
+            ctx.fillText("Magical!", 0, 60);
+        }
+
+        ctx.restore();
+        ctx.textAlign = "left";
+    }
 }
 
 /* ================= LOOP ================= */
 function loop() {
-  update();
-  draw();
-  requestAnimationFrame(loop);
+    update();
+    draw();
+    requestAnimationFrame(loop);
 }
 
 loadLevel(0);
