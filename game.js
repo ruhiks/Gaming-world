@@ -3,13 +3,12 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
 /* ================= CONSTANTS ================= */
-const GRAVITY = 0.6;
+const GRAVITY = 0.7;
 const MOVE_SPEED = 4;
-const JUMP_FORCE = 13;
-const FALL_DEATH_Y = canvas.height + 100;
+const JUMP_FORCE = 14;
+const FALL_LIMIT = canvas.height + 100;
 
 /* ================= STATE ================= */
-let gravityDir = 1;
 let gameOver = false;
 let levelComplete = false;
 let finalWin = false;
@@ -21,7 +20,7 @@ let cloudX1 = 0;
 let cloudX2 = canvas.width;
 const CLOUD_SPEED = 0.25;
 
-/* ================= IMAGE LOADER ================= */
+/* ================= LOAD IMAGE ================= */
 function img(src) {
   const i = new Image();
   i.src = src;
@@ -29,7 +28,7 @@ function img(src) {
 }
 
 /* ================= ASSETS ================= */
-const bgImg = img("assets/bg.png");
+const bg = img("assets/bg.png");
 const wizardImg = img("assets/wizard.png");
 const blockImg = img("assets/block.png");
 const spikeImg = img("assets/spike.png");
@@ -61,47 +60,56 @@ const player = {
   onGround: false
 };
 
-/* ================= LEVEL DATA ================= */
+/* ================= LEVELS ================= */
 const levels = [
+  // LEVEL 1
   {
     start: { x: 80, y: 360 },
     blocks: [
       { x: 0, y: 500, w: 960, h: 40 },
-      { x: 260, y: 420, w: 160, h: 30 },
-      { x: 520, y: 340, w: 160, h: 30 }
+      { x: 300, y: 420, w: 160, h: 28 },
+      { x: 600, y: 340, w: 160, h: 28 }
     ],
-    spikes: [{ x: 380, y: 460, w: 40, h: 40 }],
-    castle: { x: 760, y: 100, w: 160, h: 180 }
+    spikes: [
+      { x: 480, y: 460, w: 40, h: 40 }
+    ],
+    castle: { x: 760, y: 120, w: 160, h: 180 }
   },
+
+  // LEVEL 2
   {
     start: { x: 60, y: 360 },
     blocks: [
       { x: 0, y: 500, w: 960, h: 40 },
-      { x: 200, y: 420, w: 120, h: 28 },
-      { x: 420, y: 340, w: 120, h: 28 },
-      { x: 640, y: 260, w: 120, h: 28 }
+      { x: 200, y: 420, w: 120, h: 26 },
+      { x: 420, y: 340, w: 120, h: 26 },
+      { x: 640, y: 260, w: 120, h: 26 }
     ],
     spikes: [
-      { x: 180, y: 460, w: 40, h: 40 },
-      { x: 420, y: 460, w: 40, h: 40 }
+      { x: 150, y: 460, w: 40, h: 40 },
+      { x: 350, y: 460, w: 40, h: 40 },
+      { x: 550, y: 460, w: 40, h: 40 }
     ],
     castle: { x: 760, y: 40, w: 160, h: 180 }
   },
+
+  // LEVEL 3 (HARD)
   {
-    start: { x: 40, y: 380 },
+    start: { x: 40, y: 360 },
     blocks: [
       { x: 0, y: 500, w: 960, h: 40 },
-      { x: 160, y: 420, w: 100, h: 26 },
-      { x: 340, y: 340, w: 100, h: 26 },
-      { x: 520, y: 260, w: 100, h: 26 },
-      { x: 340, y: 140, w: 100, h: 26 }
+      { x: 150, y: 420, w: 90, h: 24 },
+      { x: 320, y: 340, w: 90, h: 24 },
+      { x: 500, y: 260, w: 90, h: 24 },
+      { x: 680, y: 180, w: 90, h: 24 }
     ],
     spikes: [
-      { x: 120, y: 460, w: 40, h: 40 },
-      { x: 300, y: 460, w: 40, h: 40 },
-      { x: 480, y: 460, w: 40, h: 40 }
+      { x: 100, y: 460, w: 40, h: 40 },
+      { x: 260, y: 460, w: 40, h: 40 },
+      { x: 420, y: 460, w: 40, h: 40 },
+      { x: 580, y: 460, w: 40, h: 40 }
     ],
-    castle: { x: 740, y: 0, w: 180, h: 200 }
+    castle: { x: 760, y: 0, w: 180, h: 200 }
   }
 ];
 
@@ -122,7 +130,6 @@ function loadLevel(i) {
   player.vy = 0;
   player.onGround = false;
 
-  gravityDir = 1;
   gameOver = false;
   levelComplete = false;
   winTimer = 0;
@@ -148,7 +155,6 @@ function hit(a, b) {
 
 /* ================= UPDATE ================= */
 function update() {
-  // clouds
   cloudX1 -= CLOUD_SPEED;
   cloudX2 -= CLOUD_SPEED;
   if (cloudX1 <= -canvas.width) cloudX1 = canvas.width;
@@ -158,7 +164,8 @@ function update() {
 
   if (levelComplete) {
     winTimer++;
-    if (winTimer > 90) {
+    player.vy = -0.3; // wand rise effect
+    if (winTimer > 120) {
       currentLevel++;
       if (currentLevel < levels.length) loadLevel(currentLevel);
       else finalWin = true;
@@ -166,41 +173,32 @@ function update() {
     return;
   }
 
-  // movement
-  player.vx = keys.ArrowLeft ? -MOVE_SPEED :
-              keys.ArrowRight ? MOVE_SPEED : 0;
+  player.vx = (keys.ArrowLeft ? -MOVE_SPEED : 0) +
+              (keys.ArrowRight ? MOVE_SPEED : 0);
 
   if (keys.Space && player.onGround) {
-    player.vy = -JUMP_FORCE * gravityDir;
+    player.vy = -JUMP_FORCE;
     player.onGround = false;
   }
 
-  if (keys.KeyG) {
-    gravityDir *= -1;
-    keys.KeyG = false;
-  }
-
-  player.vy += GRAVITY * gravityDir;
+  player.vy += GRAVITY;
   player.x += player.vx;
   player.y += player.vy;
   player.onGround = false;
 
-  // platform collision
   blocks.forEach(b => {
     if (hit(player, b)) {
-      player.y = gravityDir === 1 ? b.y - player.h : b.y + b.h;
+      player.y = b.y - player.h;
       player.vy = 0;
       player.onGround = true;
     }
   });
 
-  // fall death
-  if (player.y > FALL_DEATH_Y || player.y + player.h < -100) {
+  if (player.y > FALL_LIMIT) {
     gameOver = true;
     deathSound.play().catch(() => {});
   }
 
-  // spikes
   spikes.forEach(s => {
     if (hit(player, s)) {
       gameOver = true;
@@ -208,11 +206,10 @@ function update() {
     }
   });
 
-  // castle win
   if (hit(player, castle)) {
     levelComplete = true;
     player.vx = 0;
-    player.vy = -8 * gravityDir; // victory jump
+    player.vy = -8;
   }
 }
 
@@ -220,16 +217,15 @@ function update() {
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  ctx.drawImage(bgImg, cloudX1, 0, canvas.width, canvas.height);
-  ctx.drawImage(bgImg, cloudX2, 0, canvas.width, canvas.height);
+  ctx.drawImage(bg, cloudX1, 0, canvas.width, canvas.height);
+  ctx.drawImage(bg, cloudX2, 0, canvas.width, canvas.height);
 
   blocks.forEach(b => ctx.drawImage(blockImg, b.x, b.y, b.w, b.h));
   spikes.forEach(s => ctx.drawImage(spikeImg, s.x, s.y, s.w, s.h));
 
-  // glowing castle
-  const glow = 18 + Math.sin(Date.now() / 250) * 10;
+  const glow = 18 + Math.sin(Date.now() / 200) * 12;
   ctx.save();
-  ctx.shadowColor = "rgba(255,215,120,0.9)";
+  ctx.shadowColor = "rgba(255,215,120,1)";
   ctx.shadowBlur = glow;
   ctx.drawImage(castleImg, castle.x, castle.y, castle.w, castle.h);
   ctx.restore();
@@ -249,7 +245,7 @@ function draw() {
 
   if (levelComplete) {
     ctx.font = "32px Arial";
-    ctx.fillText("LEVEL COMPLETED!", 320, 260);
+    ctx.fillText("LEVEL COMPLETED", 300, 260);
   }
 
   if (finalWin) {
