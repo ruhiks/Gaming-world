@@ -33,7 +33,7 @@ const spikeImg = loadImage("assets/spike.png");
 const castleImg = loadImage("assets/castle.png");
 
 /* ================= AUDIO ================= */
-const bgm = new Audio("assets/music.mp3");   // NEW music
+const bgm = new Audio("assets/music.mp3");
 bgm.loop = true;
 bgm.volume = 0.4;
 
@@ -63,7 +63,6 @@ const player = {
 
 /* ================= LEVEL DATA ================= */
 const levels = [
-  // LEVEL 1
   {
     start: { x: 100, y: 320 },
     blocks: [
@@ -79,8 +78,6 @@ const levels = [
     ],
     castle: { x: 760, y: 90, w: 160, h: 180 }
   },
-
-  // LEVEL 2 (harder)
   {
     start: { x: 70, y: 360 },
     blocks: [
@@ -94,32 +91,9 @@ const levels = [
       { x: 120, y: 460, w: 40, h: 40 },
       { x: 300, y: 460, w: 40, h: 40 },
       { x: 480, y: 460, w: 40, h: 40 },
-      { x: 420, y: 300, w: 40, h: 40 },
-      { x: 600, y: 220, w: 40, h: 40 }
+      { x: 420, y: 300, w: 40, h: 40 }
     ],
     castle: { x: 90, y: 30, w: 160, h: 180 }
-  },
-
-  // LEVEL 3 (dungeon mastery)
-  {
-    start: { x: 60, y: 380 },
-    blocks: [
-      { x: 0, y: 500, w: 960, h: 40 },
-      { x: 130, y: 420, w: 100, h: 24 },
-      { x: 290, y: 340, w: 100, h: 24 },
-      { x: 450, y: 260, w: 100, h: 24 },
-      { x: 610, y: 180, w: 100, h: 24 },
-      { x: 290, y: 80,  w: 100, h: 24 }
-    ],
-    spikes: [
-      { x: 90,  y: 460, w: 40, h: 40 },
-      { x: 250, y: 460, w: 40, h: 40 },
-      { x: 410, y: 460, w: 40, h: 40 },
-      { x: 570, y: 460, w: 40, h: 40 },
-      { x: 350, y: 300, w: 40, h: 40 },
-      { x: 510, y: 220, w: 40, h: 40 }
-    ],
-    castle: { x: 760, y: 0, w: 160, h: 180 }
   }
 ];
 
@@ -142,11 +116,20 @@ function loadLevel(i) {
 
   gravityDir = 1;
   gameOver = false;
+  bgm.currentTime = 0;
+  bgm.play().catch(() => {});
 }
 
 /* ================= INPUT ================= */
 const keys = {};
-window.addEventListener("keydown", e => keys[e.code] = true);
+window.addEventListener("keydown", e => {
+  keys[e.code] = true;
+
+  // Restart on death
+  if (gameOver && e.code === "KeyR") {
+    loadLevel(currentLevel);
+  }
+});
 window.addEventListener("keyup", e => keys[e.code] = false);
 
 /* ================= COLLISION ================= */
@@ -163,13 +146,11 @@ function collide(a, b) {
 function update() {
   if (gameOver || finalWin) return;
 
-  // clouds
   cloudX1 -= CLOUD_SPEED;
   cloudX2 -= CLOUD_SPEED;
   if (cloudX1 <= -canvas.width) cloudX1 = canvas.width;
   if (cloudX2 <= -canvas.width) cloudX2 = canvas.width;
 
-  // movement
   player.vx = keys.ArrowLeft ? -MOVE_SPEED :
               keys.ArrowRight ? MOVE_SPEED : 0;
 
@@ -183,13 +164,11 @@ function update() {
     keys.KeyG = false;
   }
 
-  // physics
   player.vy += GRAVITY * gravityDir;
   player.x += player.vx;
   player.y += player.vy;
   player.onGround = false;
 
-  // platforms
   blocks.forEach(b => {
     if (collide(player, b)) {
       player.y = gravityDir === 1 ? b.y - player.h : b.y + b.h;
@@ -198,16 +177,15 @@ function update() {
     }
   });
 
-  // spikes
   spikes.forEach(s => {
     if (collide(player, s)) {
       gameOver = true;
       bgm.pause();
-      deathSound.play();
+      deathSound.currentTime = 0;
+      deathSound.play().catch(() => {});
     }
   });
 
-  // castle → next level
   if (collide(player, castle)) {
     currentLevel++;
     if (currentLevel < levels.length) {
@@ -228,10 +206,9 @@ function draw() {
   blocks.forEach(b => ctx.drawImage(blockImg, b.x, b.y, b.w, b.h));
   spikes.forEach(s => ctx.drawImage(spikeImg, s.x, s.y, s.w, s.h));
 
-  // ✨ Sparkling castle
   const glow = 18 + Math.sin(Date.now() / 300) * 10;
   ctx.save();
-  ctx.shadowColor = "rgba(255, 215, 120, 0.9)";
+  ctx.shadowColor = "rgba(255,215,120,0.9)";
   ctx.shadowBlur = glow;
   ctx.drawImage(castleImg, castle.x, castle.y, castle.w, castle.h);
   ctx.restore();
@@ -245,8 +222,8 @@ function draw() {
   if (gameOver) {
     ctx.font = "40px Arial";
     ctx.fillText("YOU DIED", 360, 260);
-    ctx.font = "18px Arial";
-    ctx.fillText("Press Ctrl + R to Retry", 330, 300);
+    ctx.font = "20px Arial";
+    ctx.fillText("Press R to Retry", 360, 300);
   }
 
   if (finalWin) {
@@ -265,6 +242,259 @@ function loop() {
 /* ================= START ================= */
 loadLevel(0);
 loop();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
