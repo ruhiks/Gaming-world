@@ -25,6 +25,72 @@ const wizardImg = loadImage("assets/wizard.png");
 const blockImg = loadImage("assets/block.png");
 const spikeImg = loadImage("assets/spike.png");
 const castleImg = loadImage("assets/castle.png");
+// ================== LEVEL DATA ==================
+
+const level1 = {
+  playerStart: { x: 100, y: 320 },
+
+  blocks: [
+    { x: 0, y: 500, w: 960, h: 40 },
+    { x: 220, y: 420, w: 160, h: 30 },
+    { x: 440, y: 340, w: 160, h: 30 },
+    { x: 660, y: 260, w: 160, h: 30 },
+    { x: 440, y: 150, w: 160, h: 30 }
+  ],
+
+  spikes: [
+    { x: 350, y: 460, w: 40, h: 40 },
+    { x: 390, y: 460, w: 40, h: 40 }
+  ],
+
+  castle: { x: 760, y: 80, w: 160, h: 180 }
+};
+
+// -------- LEVEL 2 --------
+const level2 = {
+  playerStart: { x: 80, y: 360 },
+
+  blocks: [
+    { x: 0, y: 500, w: 960, h: 40 },
+    { x: 180, y: 420, w: 140, h: 30 },
+    { x: 380, y: 340, w: 140, h: 30 },
+    { x: 580, y: 260, w: 140, h: 30 },
+    { x: 380, y: 140, w: 140, h: 30 },
+    { x: 180, y: 80, w: 140, h: 30 }
+  ],
+
+  spikes: [
+    { x: 320, y: 470, w: 40, h: 40 },
+    { x: 500, y: 300, w: 40, h: 40 }
+  ],
+
+  castle: { x: 100, y: 20, w: 160, h: 180 }
+};
+
+// -------- LEVEL 3 --------
+const level3 = {
+  playerStart: { x: 60, y: 360 },
+
+  blocks: [
+    { x: 0, y: 500, w: 960, h: 40 },
+    { x: 140, y: 420, w: 120, h: 30 },
+    { x: 300, y: 340, w: 120, h: 30 },
+    { x: 460, y: 260, w: 120, h: 30 },
+    { x: 620, y: 180, w: 120, h: 30 },
+    { x: 460, y: 100, w: 120, h: 30 },
+    { x: 300, y: 40, w: 120, h: 30 }
+  ],
+
+  spikes: [
+    { x: 200, y: 470, w: 40, h: 40 },
+    { x: 360, y: 380, w: 40, h: 40 },
+    { x: 520, y: 300, w: 40, h: 40 },
+    { x: 680, y: 220, w: 40, h: 40 }
+  ],
+
+  castle: { x: 760, y: 0, w: 160, h: 180 }
+};
+
 
 // ================== MUSIC ==================
 const bgm = new Audio("assets/music.mp3");
@@ -52,27 +118,34 @@ const player = {
   onGround: false
 };
 
-// ================== LEVEL ==================
-const blocks = [
-  { x: 0, y: 500, w: 960, h: 40 },
-  { x: 220, y: 420, w: 160, h: 30 },
-  { x: 440, y: 340, w: 160, h: 30 },
-  { x: 660, y: 260, w: 160, h: 30 },
-  { x: 440, y: 150, w: 160, h: 30 }
-];
+// ================== LEVEL MANAGER ==================
 
-const spikes = [
-  { x: 350, y: 460, w: 40, h: 40 },
-  { x: 390, y: 460, w: 40, h: 40 },
-  { x: 520, y: 300, w: 40, h: 40 }
-];
+const levels = [level1, level2, level3];
+let currentLevel = 0;
 
-const castle = {
-  x: 760,
-  y: 80,
-  w: 160,
-  h: 180
-};
+let blocks = [];
+let spikes = [];
+let castle = {};
+
+function loadLevel(index) {
+  const lvl = levels[index];
+
+  blocks = lvl.blocks;
+  spikes = lvl.spikes;
+  castle = lvl.castle;
+
+  player.x = lvl.playerStart.x;
+  player.y = lvl.playerStart.y;
+
+  player.vx = 0;
+  player.vy = 0;
+  player.onGround = false;
+
+  gravityDir = 1;
+  gameOver = false;
+  levelComplete = false;
+}
+
 
 // ================== INPUT ==================
 const keys = {};
@@ -134,8 +207,15 @@ function update() {
   });
 
   // Win condition (ENTER CASTLE)
-  if (collide(player, castle)) {
-    levelComplete = true;
+ if (collide(player, castle)) {
+  currentLevel++;
+
+  if (currentLevel < levels.length) {
+    loadLevel(currentLevel);
+  } else {
+    levelComplete = true; // final win
+  }
+}
 
     // Lock wizard neatly inside castle
     player.x = castle.x + castle.w / 2 - player.w / 2;
@@ -182,6 +262,7 @@ function loop() {
   draw();
   requestAnimationFrame(loop);
 }
+loadLevel(0);
 
 loop();
 
