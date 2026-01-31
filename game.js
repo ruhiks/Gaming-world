@@ -1,4 +1,4 @@
-/* ================= STATE ================= */
+/* ================= CANVAS SETUP ================= */
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 /* ================= CONSTANTS ================= */
@@ -9,20 +9,20 @@ const FAST_FALL = 2.0;
 const FALL_DEATH_Y = canvas.height + 40;
 const CLOUD_SPEED = 1.0;
 /* ================= VARIABLES ================= */
-let gameState = "START"; // START, PLAY, LEVEL_WIN, GAME_WIN, GAME_OVER
+let gameState = "START";
 let currentLevel = 0;
 let winTimer = 0;
 let wandAngle = 0;
 let textScale = 0;
 let particles = [];
 let castleParticles = [];
-let audioContext = null; // For robust audio if we were using WebAudio API, but staying simple for now
 /* ================= ASSET LOADER ================= */
 const img = (src) => {
     const i = new Image();
     i.src = src;
     return i;
 };
+// Ensure these assets exist in your folder
 const bg = img("assets/bg.png");
 const wizardImg = img("assets/wizard.png");
 const blockImg = img("assets/block.png");
@@ -36,7 +36,7 @@ const deathSound = new Audio("assets/death.mp3");
 /* ================= PLAYER ================= */
 const player = {
     x: 0, y: 0,
-    w: 80, h: 80, // BIGGER
+    w: 80, h: 80,
     vx: 0, vy: 0,
     onGround: false,
     facingRight: true,
@@ -53,7 +53,7 @@ const levels = [
             { x: 550, y: 380, w: 200, h: 32 }
         ],
         spikes: [
-            { x: 320, y: 418, w: 40, h: 32 } // Spike ON the path
+            { x: 320, y: 418, w: 40, h: 32 }
         ],
         castle: { x: 800, y: 220, w: 140, h: 180 }
     },
@@ -67,9 +67,9 @@ const levels = [
             { x: 750, y: 300, w: 210, h: 32 }
         ],
         spikes: [
-            { x: 220, y: 500, w: 60, h: 32 }, // Floor spike
-            { x: 330, y: 388, w: 40, h: 32 }, // Platform spike
-            { x: 550, y: 318, w: 40, h: 32 }  // Platform spike
+            { x: 220, y: 500, w: 60, h: 32 },
+            { x: 330, y: 388, w: 40, h: 32 },
+            { x: 550, y: 318, w: 40, h: 32 }
         ],
         castle: { x: 800, y: 140, w: 140, h: 180 }
     },
@@ -123,24 +123,24 @@ window.addEventListener("keydown", e => {
     if (gameState === "GAME_OVER" && e.code === "KeyR") loadLevel(currentLevel);
 });
 window.addEventListener("keyup", e => keys[e.code] = false);
-// Click to start fallback
+// Click handler
 canvas.addEventListener("click", () => {
     if (gameState === "START") {
         bgm.play().catch(e => console.log("Audio Error:", e));
         loadLevel(0);
     }
 });
-/* ================= LOGIC ================= */
-// Background vars
+/* ================= UPDATE LOOP ================= */
+// Background positions
 let cloudX1 = 0;
 let cloudX2 = canvas.width;
 function update() {
-    // Scroll BG always
+    // Scroll BG
     cloudX1 -= CLOUD_SPEED;
     cloudX2 -= CLOUD_SPEED;
     if (cloudX1 <= -canvas.width) cloudX1 = canvas.width;
     if (cloudX2 <= -canvas.width) cloudX2 = canvas.width;
-    // Castle Sparkles (Always, make them bright)
+    // Castle Sparkles
     if (gameState !== "START" && castle.x) {
         if (Math.random() < 0.4) {
             castleParticles.push({
@@ -159,7 +159,7 @@ function update() {
     updateParticles();
 }
 function updatePlay() {
-    // Move
+    // Movement
     const dir = (keys.ArrowLeft ? -1 : 0) + (keys.ArrowRight ? 1 : 0);
     player.vx = dir * MOVE_SPEED;
     if (dir !== 0) player.facingRight = dir > 0;
@@ -168,42 +168,44 @@ function updatePlay() {
         player.onGround = false;
     }
     if (keys.ArrowDown) player.vy += FAST_FALL;
-    // Physics
-    player.vy += GRAVITY;
+    // Physics X
     player.x += player.vx;
-    handleCollisionsX();
+    handleCollisionsX(); // Collision X
+    // Physics Y
+    player.vy += GRAVITY;
     player.y += player.vy;
     player.onGround = false;
-    handleCollisionsY();
+    handleCollisionsY(); // Collision Y
     // Bounds
     if (player.x < 0) player.x = 0;
     if (player.x + player.w > canvas.width) player.x = canvas.width - player.w;
-    // Death
+    // Death Checks
     if (player.y > FALL_DEATH_Y) die();
-    spikes.forEach(s => { if (rectIntersect(player, s)) die(); });
-    // Win Condition: Enter Castle
-    // Checks if player center is inside castle
+    // Check Spikes
+    for (let s of spikes) {
+        if (rectIntersect(player, s)) { die(); return; }
+    }
+    // Win Checker
     const px = player.x + player.w / 2;
     const py = player.y + player.h / 2;
+    // Simple bounding box check + center point
     if (px > castle.x + 20 && px < castle.x + castle.w - 20 &&
         py > castle.y + 20 && py < castle.y + castle.h) {
         gameState = "LEVEL_WIN";
+        // Snap player to castle door
         player.vx = 0; player.vy = 0;
-        player.x = castle.x + castle.w / 2 - player.w / 2; // Snap to center
+        player.x = castle.x + castle.w / 2 - player.w / 2;
         player.y = castle.y + castle.h - player.h - 10;
     }
 }
 function updateLevelWin() {
     winTimer++;
-    // Phase 1: Player enters (fades/shrinks slightly)
-    // Actually user wants: character enters, THEN raises wand, THEN sparkles
-    // Wand Raise
+    // Animate Wand
     if (winTimer < 40) {
         wandAngle = (winTimer / 40) * (-Math.PI / 3);
     }
-    // Sparkles Explosion
+    // Spawn Particles
     if (winTimer === 45) {
-        // Big burst
         for (let i = 0; i < 30; i++) {
             particles.push({
                 x: castle.x + castle.w / 2,
@@ -216,27 +218,27 @@ function updateLevelWin() {
             });
         }
     }
-    // Text Animation
+    // Animate Text
     if (winTimer > 45) {
         if (textScale < 1) textScale += 0.05;
     }
-    // Next Level
+    // Go Next
     if (winTimer > 200) {
         currentLevel++;
         loadLevel(currentLevel);
     }
 }
 function handleCollisionsX() {
-    blocks.forEach(b => {
+    for (let b of blocks) {
         if (rectIntersect(player, b)) {
             if (player.vx > 0) player.x = b.x - player.w;
             else if (player.vx < 0) player.x = b.x + b.w;
             player.vx = 0;
         }
-    });
+    }
 }
 function handleCollisionsY() {
-    blocks.forEach(b => {
+    for (let b of blocks) {
         if (rectIntersect(player, b)) {
             if (player.vy > 0) {
                 player.y = b.y - player.h;
@@ -247,7 +249,7 @@ function handleCollisionsY() {
                 player.vy = 0;
             }
         }
-    });
+    }
 }
 function rectIntersect(a, b) {
     return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
@@ -257,42 +259,44 @@ function die() {
     deathSound.play().catch(() => { });
 }
 function updateParticles() {
-    particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.life--; });
-    castleParticles.forEach(p => { p.x += p.vx; p.y += p.vy; p.life--; });
+    for (let p of particles) { p.x += p.vx; p.y += p.vy; p.life--; }
+    for (let p of castleParticles) { p.x += p.vx; p.y += p.vy; p.life--; }
     particles = particles.filter(p => p.life > 0);
     castleParticles = castleParticles.filter(p => p.life > 0);
 }
 /* ================= DRAW ================= */
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    // BG
+    // 1. Background
     ctx.drawImage(bg, cloudX1, 0, canvas.width, canvas.height);
     ctx.drawImage(bg, cloudX2, 0, canvas.width, canvas.height);
-    // Start Screen
+    // 2. Start Screen
     if (gameState === "START") {
         ctx.fillStyle = "rgba(0,0,0,0.6)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = "white";
         ctx.textAlign = "center";
-        ctx.font = "bold 50px Arial";
-        ctx.fillText("ANTIGRAVITY WIZARD", canvas.width / 2, 200);
+        ctx.shadowColor = "cyan";
+        ctx.shadowBlur = 10;
+        ctx.font = "bold 60px Arial";
+        ctx.fillText("ANTIGRAVITY WIZARD", canvas.width / 2, 220);
+        ctx.shadowBlur = 0;
         ctx.font = "30px Arial";
-        ctx.fillText("Click or Press SPACE to Start", canvas.width / 2, 300);
-        return; // Skip rest
+        ctx.fillText("Click or Press SPACE to Start", canvas.width / 2, 320);
+        return;
     }
-    // World
+    // 3. Game World
     blocks.forEach(b => ctx.drawImage(blockImg, b.x, b.y, b.w, b.h));
     spikes.forEach(s => ctx.drawImage(spikeImg, s.x, s.y, s.w, s.h));
-    // Castle
-    // Draw "Glow" behind castle
+    // Castle Glow + Image
     ctx.save();
     ctx.shadowColor = "gold";
     ctx.shadowBlur = 30;
     ctx.drawImage(castleImg, castle.x, castle.y, castle.w, castle.h);
     ctx.restore();
-    // Castle Particles
+    // Sparkles behind/around castle
     drawParticles(castleParticles);
-    // Player
+    // 4. Player
     if (player.visible) {
         ctx.save();
         if (!player.facingRight) {
@@ -302,23 +306,24 @@ function draw() {
         } else {
             ctx.drawImage(wizardImg, player.x, player.y, player.w, player.h);
         }
-        // Wand logic
+        // Wand (Win Animation)
         if (gameState === "LEVEL_WIN") {
             ctx.save();
+            // Position relative to flip
             if (player.facingRight) ctx.translate(player.x + player.w - 15, player.y + 40);
             else ctx.translate(15, 40);
             ctx.rotate(wandAngle);
             ctx.fillStyle = "#8d5524";
-            ctx.fillRect(0, -4, 40, 8); // Stick
+            ctx.fillRect(0, -4, 40, 8);
             ctx.fillStyle = "cyan";
-            ctx.fillRect(35, -5, 10, 10); // Tip
+            ctx.fillRect(35, -5, 10, 10);
             ctx.restore();
         }
         ctx.restore();
     }
-    // Explosion Particles
+    // Win Explosion Particles
     drawParticles(particles);
-    // UI
+    // 5. UI Overlays
     if (gameState === "GAME_OVER") {
         ctx.fillStyle = "rgba(0,0,0,0.7)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -369,54 +374,8 @@ function loop() {
         console.error(e);
     }
 }
+// Start Loop
 loop();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
