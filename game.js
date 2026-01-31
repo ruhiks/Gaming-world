@@ -1,12 +1,10 @@
 /* ================= CANVAS & SETUP ================= */
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
-
 // Make canvas full screen or fixed size? Let's go with fixed size for gameplay
 // but responsive CSS handles the rest.
 canvas.width = 1000;
 canvas.height = 600;
-
 /* ================= CONSTANTS ================= */
 const GRAVITY = 0.6;
 const FRICTION = 0.8;
@@ -14,13 +12,11 @@ const MOVE_ACCEL = 0.8;
 const MAX_SPEED = 8;
 const JUMP_FORCE = 14;
 const FALL_DEATH_Y = 2000; // Death if you fall too far
-
 // "Little Big" Character dimensions
 // We'll make the hit box smaller than the visual sprite for better feel
 const PLAYER_W = 60;
 const PLAYER_H = 90;
 const PLAYER_DRAW_SCALE = 1.4; // Visuals are bigger
-
 /* ================= STATE ================= */
 let levelIndex = 0;
 let gameOver = false;
@@ -28,30 +24,25 @@ let levelWin = false;
 let winTimer = 0;
 let transitionRotate = 0;
 let wandAngle = 0;
-
 // Camera
 const camera = { x: 0, y: 0 };
-
 /* ================= ASSETS ================= */
 const load = src => {
     const i = new Image();
     i.src = src;
     return i;
 };
-
 const bgImg = load("assets/bg.png");
 const wizardImg = load("assets/wizard.png");
 const blockImg = load("assets/block.png");
 const castleImg = load("assets/castle.png");
 const spikeImg = load("assets/spike.png");
-
 // Audio (Placeholder handlers)
 // If files exist, they will play. If not, catch suppresses errors.
 const bgm = new Audio("assets/music.mp3");
 bgm.loop = true;
 bgm.volume = 0.3;
 const deathSound = new Audio("assets/death.mp3");
-
 let audioStarted = false;
 window.addEventListener("keydown", () => {
     if (!audioStarted) {
@@ -59,7 +50,6 @@ window.addEventListener("keydown", () => {
         audioStarted = true;
     }
 }, { once: true });
-
 /* ================= PLAYER ================= */
 const player = {
     x: 100,
@@ -71,7 +61,6 @@ const player = {
     onGround: false,
     facingRight: true
 };
-
 /* ================= PARTICLES ================= */
 let particles = [];
 function spawnSparkle(x, y, color = "gold") {
@@ -85,12 +74,10 @@ function spawnSparkle(x, y, color = "gold") {
         });
     }
 }
-
 /* ================= LEVELS ================= */
 // Helper to create blocks more easily
 const B = (x, y, w, h) => ({ x, y, w, h });
 const S = (x, y) => ({ x, y, w: 40, h: 60 }); // Standard spike size
-
 const levels = [
     // LEVEL 1: Introduction
     {
@@ -109,7 +96,6 @@ const levels = [
         castle: { x: 1600, y: 50, w: 140, h: 200 },
         width: 2000
     },
-
     // LEVEL 2: More Spikes & Height
     {
         start: { x: 100, y: 400 },
@@ -131,7 +117,6 @@ const levels = [
         castle: { x: 2150, y: 100, w: 140, h: 200 },
         width: 2500
     },
-
     // LEVEL 3: Verticality and Precision
     {
         start: { x: 100, y: 500 },
@@ -156,29 +141,24 @@ const levels = [
         width: 2000
     }
 ];
-
 let blocks = [];
 let spikes = [];
 let castle = {};
 let levelWidth = 0;
-
 /* ================= GAME LOGIC ================= */
 function loadLevel(i) {
     if (i >= levels.length) i = 0; // Loop back or end logic
     levelIndex = i;
     const l = levels[i];
-
     blocks = l.blocks;
     spikes = l.spikes;
     castle = l.castle;
     levelWidth = l.width;
-
     player.x = l.start.x;
     player.y = l.start.y;
     player.vx = 0;
     player.vy = 0;
     player.onGround = false;
-
     gameOver = false;
     levelWin = false;
     winTimer = 0;
@@ -186,55 +166,45 @@ function loadLevel(i) {
     particles = [];
     wandAngle = 0;
 }
-
 const keys = {};
 window.addEventListener("keydown", e => {
     keys[e.code] = true;
     if (gameOver && e.code === "KeyR") loadLevel(levelIndex);
 });
 window.addEventListener("keyup", e => keys[e.code] = false);
-
 // AABB Collision
 const rectIntersect = (r1, r2) =>
     r1.x < r2.x + r2.w &&
     r1.x + r1.w > r2.x &&
     r1.y < r2.y + r2.h &&
     r1.y + r1.h > r2.y;
-
 function update() {
     if (gameOver) return;
-
     if (levelWin) {
         winTimer++;
         // Wand Swoosh Logic
         wandAngle = Math.sin(winTimer * 0.1) * 1.5; // Back and forth wave
-
         // Sparkles from wand tip
         // We estimate tip position similar to draw loop but in world space logic
         const tipX = player.x + player.w / 2 + (player.facingRight ? 1 : -1) * 40;
         const tipY = player.y + player.h / 3;
-
         // Shoot sparkles towards the center of screen where text will be?
         // Or just explosion of sparkles
         spawnSparkle(tipX, tipY, `hsl(${winTimer * 10}, 100%, 70%)`);
-
         // Also sparkles appearing in the center for the text
         if (winTimer > 30) {
             const cx = camera.x + canvas.width / 2 + (Math.random() - 0.5) * 300;
             const cy = camera.y + canvas.height / 2 + (Math.random() - 0.5) * 100;
             spawnSparkle(cx, cy, "white");
         }
-
         // Float player up
         player.y -= 0.5;
         player.onGround = false;
-
         if (winTimer > 240) { // 4 seconds (longer to appreciate the effect)
             loadLevel(levelIndex + 1);
         }
         return;
     }
-
     /* Movement Physics */
     if (keys.ArrowLeft) {
         player.vx -= MOVE_ACCEL;
@@ -244,25 +214,19 @@ function update() {
         player.vx += MOVE_ACCEL;
         player.facingRight = true;
     }
-
     // Friction
     player.vx *= FRICTION;
-
     if (keys.Space && player.onGround) {
         player.vy = -JUMP_FORCE;
         player.onGround = false;
         spawnSparkle(player.x + player.w / 2, player.y + player.h, "white");
     }
-
     player.vy += GRAVITY;
-
     // Cap speed
     if (player.vx > MAX_SPEED) player.vx = MAX_SPEED;
     if (player.vx < -MAX_SPEED) player.vx = -MAX_SPEED;
-
     player.x += player.vx;
     player.y += player.vy;
-
     /* Collision: Blocks */
     player.onGround = false;
     blocks.forEach(b => {
@@ -275,7 +239,6 @@ function update() {
             // If vy > 0 and the bottom of player is roughly at top of block
             const overlapY = (player.y + player.h) - b.y;
             const overlapX = (player.x + player.w / 2) - (b.x + b.w / 2); // Center distance
-
             // Very simple "landing" check
             if (player.vy >= 0 && (player.y + player.h - player.vy) <= b.y + 10) {
                 player.y = b.y - player.h;
@@ -286,7 +249,6 @@ function update() {
             // Wall check could go here
         }
     });
-
     /* Collision: Spikes */
     // Use a slightly smaller hitbox for spikes to be forgiving
     const hitBox = {
@@ -307,10 +269,8 @@ function update() {
             die();
         }
     });
-
     /* Death by fall */
     if (player.y > FALL_DEATH_Y) die();
-
     /* Win */
     if (rectIntersect(player, castle)) {
         levelWin = true;
@@ -318,7 +278,6 @@ function update() {
         player.vy = 0;
         spawnSparkle(player.x, player.y, "gold");
     }
-
     /* Particles */
     particles.forEach(p => {
         p.x += p.vx;
@@ -326,119 +285,80 @@ function update() {
         p.life--;
     });
     particles = particles.filter(p => p.life > 0);
-
     /* Camera Logic */
     // Camera follows player, centered on screen
     let targetCamX = player.x - canvas.width / 2 + player.w / 2;
     let targetCamY = player.y - canvas.height / 2 + player.h / 2;
-
     // Clamp camera
     if (targetCamX < 0) targetCamX = 0;
     // if (targetCamX > levelWidth - canvas.width) targetCamX = levelWidth - canvas.width;
-
     // Smooth follow
     camera.x += (targetCamX - camera.x) * 0.1;
     camera.y += (targetCamY - camera.y) * 0.1;
     // Optional: Lock Y axis for simple platformers? "Movement everywhere" suggests free camera.
     // We'll keep Y follow but maybe clamp it so we don't see too much empty void below.
 }
-
 function die() {
     if (gameOver) return;
     gameOver = true;
     deathSound.play().catch(() => { });
     // Screen shake effect could be added here
 }
-
+/* ================= DRAW ================= */
 /* ================= DRAW ================= */
 function draw() {
     // Parallax Background
-    // We draw the background fixed or scrolling slowly relative to camera
-    const bgScrollX = (camera.x * 0.2) % canvas.width;
+    // Increased parallax factor to make movement more obvious
+    const bgScrollX = (camera.x * 0.5) % canvas.width;
     ctx.drawImage(bgImg, -bgScrollX, 0, canvas.width, canvas.height);
     ctx.drawImage(bgImg, -bgScrollX + canvas.width, 0, canvas.width, canvas.height); // Tiled
-    ctx.drawImage(bgImg, -bgScrollX - canvas.width, 0, canvas.width, canvas.height); // Tiled left just in case
-
+    ctx.drawImage(bgImg, -bgScrollX - canvas.width, 0, canvas.width, canvas.height); // Tiled left
     ctx.save();
     ctx.translate(-Math.floor(camera.x), -Math.floor(camera.y));
-
-    // Castle (Draw behind blocks maybe? No, typically target is on top or same layer)
-    // Glow effect
+    // Castle
     ctx.save();
-    ctx.shadowColor = "cyan"; // Magical blue/purple glow
+    ctx.shadowColor = "cyan";
     ctx.shadowBlur = 30 + Math.sin(Date.now() / 200) * 15;
     ctx.drawImage(castleImg, castle.x, castle.y, castle.w, castle.h);
-    // Add some sparkles around the castle constantly
     // Intense magical sparks!
     if (Math.random() < 0.3) {
         const color = Math.random() < 0.5 ? "cyan" : "white";
         spawnSparkle(castle.x + castle.w / 2 + (Math.random() - 0.5) * 60, castle.y + castle.h / 2 + (Math.random() - 0.5) * 90, color);
     }
     ctx.restore();
-
     // Blocks
     blocks.forEach(b => {
         ctx.drawImage(blockImg, b.x, b.y, b.w, b.h);
     });
-
     // Spikes
     spikes.forEach(s => {
         ctx.globalAlpha = 0.9;
         ctx.drawImage(spikeImg, s.x, s.y, s.w, s.h);
         ctx.globalAlpha = 1.0;
     });
-
     // Player
     if (!gameOver) {
         ctx.save();
-        // Flip sprite if moving left
         if (!player.facingRight) {
             ctx.translate(player.x + player.w / 2, player.y + player.h / 2);
             ctx.scale(-1, 1);
             ctx.translate(-(player.x + player.w / 2), -(player.y + player.h / 2));
         }
-
-        // Draw bigger visual than hitbox
         const drawW = player.w * PLAYER_DRAW_SCALE;
         const drawH = player.h * PLAYER_DRAW_SCALE;
         const drawX = player.x - (drawW - player.w) / 2;
         const drawY = player.y - (drawH - player.h) / 2;
-
         ctx.drawImage(wizardImg, drawX, drawY, drawW, drawH);
-
-        // Wand Swoosh Logic
-        if (levelWin) {
-            // Calculate wand position relative to player
-            const wandPivotX = player.x + player.w * 0.8;
-            const wandPivotY = player.y + player.h * 0.4;
-
-            ctx.translate(wandPivotX, wandPivotY);
+        // Wand Swoosh Logic (Only draw wand here if NOT winning, because winning has special animation below)
+        if (levelWin && winTimer < 10) {
+            // Small swoosh at start of win
+            ctx.translate(player.x + player.w * 0.8, player.y + player.h * 0.4);
             ctx.rotate(wandAngle);
-
-            // Draw a simple magical wand overlay since sprite is static
-            ctx.fillStyle = "#8B4513"; // Wood
-            ctx.fillRect(0, -2, 50, 4); // Handle
-
-            // Magical tip
-            ctx.shadowColor = "white";
-            ctx.shadowBlur = 15;
-            ctx.fillStyle = "#fff";
-            ctx.beginPath();
-            ctx.arc(50, 0, 6, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Emit sparkles from the wand tip
-            // We do this in draw loop for visual sync or update loop. 
-            // Actually easier to just spawn visual particles in world space in update()
-            if (Math.random() < 0.5) {
-                // Transform local tip to world space for particles? 
-                // Actually easier to just spawn visual particles in world space in update()
-            }
+            ctx.fillStyle = "#8B4513";
+            ctx.fillRect(0, -2, 50, 4);
         }
-
         ctx.restore();
     }
-
     // Particles
     particles.forEach(p => {
         ctx.fillStyle = p.color;
@@ -446,21 +366,17 @@ function draw() {
         ctx.fillRect(p.x, p.y, p.size || 4, p.size || 4);
     });
     ctx.globalAlpha = 1.0;
-
     ctx.restore(); // Restore camera translation
-
-    /* UI Layer (HUD) */
+    /* UI Layer */
     ctx.fillStyle = "white";
     ctx.font = "bold 24px Arial";
     ctx.shadowColor = "black";
     ctx.shadowBlur = 4;
     ctx.fillText(`Level ${levelIndex + 1}`, 20, 30);
     ctx.shadowBlur = 0;
-
     if (gameOver) {
         ctx.fillStyle = "rgba(0,0,0,0.85)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-
         ctx.save();
         ctx.shadowColor = "red";
         ctx.shadowBlur = 20;
@@ -469,55 +385,82 @@ function draw() {
         ctx.textAlign = "center";
         ctx.fillText("YOU DIED", canvas.width / 2, canvas.height / 2 - 20);
         ctx.restore();
-
         ctx.fillStyle = "white";
         ctx.font = "30px Arial";
         ctx.textAlign = "center";
         ctx.fillText("Press R to Try Again", canvas.width / 2, canvas.height / 2 + 60);
         ctx.textAlign = "left";
     }
-
     if (levelWin) {
-        ctx.fillStyle = "rgba(0,0,0,0.3)";
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        const centerX = canvas.width / 2;
+        const txt = "LEVEL COMPLETED";
+        ctx.font = "bold 60px Arial";
+        const textW = ctx.measureText(txt).width;
+        const startX = (canvas.width - textW) / 2;
         const centerY = canvas.height / 2;
-
-        // Scale text up
-        const scale = Math.min(1, winTimer / 60); // 1 second to full scale
-
+        // "Writing" animation
+        const totalDuration = 100; // frames to write
+        const progress = Math.min(1, winTimer / totalDuration);
+        const charsToShow = Math.floor(txt.length * progress);
+        const currentStr = txt.substring(0, charsToShow);
+        // Draw the text revealed so far
         ctx.save();
-        ctx.translate(centerX, centerY);
-        ctx.scale(scale, scale);
-
         ctx.shadowColor = "cyan";
         ctx.shadowBlur = 20;
         ctx.fillStyle = "white";
-        ctx.font = "bold 60px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("LEVEL COMPLETED", 0, 0);
-
-        ctx.shadowColor = "gold";
-        ctx.font = "italic 30px Arial";
-        if (scale >= 1) {
-            ctx.fillText("Magical!", 0, 60);
-        }
-
-        ctx.restore();
         ctx.textAlign = "left";
+        ctx.fillText(currentStr, startX, centerY);
+        ctx.restore();
+        // Magical Wand flying at the tip of the text
+        if (progress < 1) {
+            // Estimate position of the next character
+            const currentW = ctx.measureText(currentStr).width;
+            const wandX = startX + currentW;
+            const wandY = centerY - 20; // Slightly above baseline
+            // Draw floating wand
+            ctx.save();
+            ctx.translate(wandX, wandY);
+            const wiggle = Math.sin(winTimer * 0.3) * 0.5;
+            ctx.rotate(Math.PI / 4 + wiggle); // Angled 45 deg
+            ctx.fillStyle = "#8B4513";
+            ctx.fillRect(-5, 0, 80, 6); // Wand stick
+            ctx.fillStyle = "white"; // Tip
+            ctx.beginPath(); ctx.arc(0, 3, 5, 0, Math.PI * 2); ctx.fill();
+            // Spawn sparkles at the writing tip!
+            for (let k = 0; k < 3; k++) {
+                particles.push({
+                    x: wandX + camera.x, // Convert to world space for the particle system
+                    y: wandY + camera.y,
+                    vx: (Math.random() - 0.5) * 10,
+                    vy: (Math.random() - 0.5) * 10,
+                    life: 40,
+                    color: `hsl(${Math.random() * 360}, 100%, 70%)`
+                });
+            }
+            ctx.restore();
+        } else {
+            // Text is done, show final sparkles or "Magical" text
+            ctx.save();
+            ctx.fillStyle = "gold";
+            ctx.font = "italic 30px Arial";
+            ctx.textAlign = "center";
+            ctx.shadowColor = "gold";
+            ctx.shadowBlur = 10;
+            ctx.fillText("Magical!", canvas.width / 2, centerY + 60);
+            ctx.restore();
+        }
     }
 }
-
 /* ================= LOOP ================= */
 function loop() {
     update();
     draw();
     requestAnimationFrame(loop);
 }
-
 loadLevel(0);
 loop();
+
 
 
 
