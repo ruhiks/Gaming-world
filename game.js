@@ -3,24 +3,25 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
 /* ================= CONSTANTS ================= */
-const GRAVITY = 0.7;
 const MOVE_SPEED = 4;
-const JUMP_FORCE = 14;
-const FALL_LIMIT = canvas.height + 100;
+const JUMP_HEIGHT = 90;
+const JUMP_TIME = 18;
 
 /* ================= STATE ================= */
 let gameOver = false;
 let levelComplete = false;
 let finalWin = false;
 let currentLevel = 0;
+let jumpFrame = 0;
+let jumping = false;
 let winTimer = 0;
 
-/* ================= CLOUD BACKGROUND ================= */
+/* ================= BACKGROUND ================= */
 let cloudX1 = 0;
 let cloudX2 = canvas.width;
 const CLOUD_SPEED = 0.25;
 
-/* ================= LOAD IMAGE ================= */
+/* ================= IMAGE LOADER ================= */
 function img(src) {
   const i = new Image();
   i.src = src;
@@ -43,71 +44,63 @@ const deathSound = new Audio("assets/death.mp3");
 deathSound.volume = 0.8;
 
 let audioUnlocked = false;
-function unlockAudio() {
+window.addEventListener("keydown", () => {
   if (!audioUnlocked) {
     bgm.play().catch(() => {});
     audioUnlocked = true;
   }
-}
-window.addEventListener("keydown", unlockAudio, { once: true });
-window.addEventListener("mousedown", unlockAudio, { once: true });
+}, { once: true });
 
 /* ================= PLAYER ================= */
 const player = {
-  x: 0, y: 0,
-  w: 96, h: 128,
-  vx: 0, vy: 0,
-  onGround: false
+  x: 0,
+  y: 0,
+  w: 96,
+  h: 128,
+  onBrick: false
 };
 
 /* ================= LEVELS ================= */
 const levels = [
-  // LEVEL 1
   {
-    start: { x: 80, y: 360 },
+    start: { x: 80, y: 372 },
     blocks: [
-      { x: 0, y: 500, w: 960, h: 40 },
-      { x: 300, y: 420, w: 160, h: 28 },
-      { x: 600, y: 340, w: 160, h: 28 }
+      { x: 80, y: 500, w: 160, h: 28 },
+      { x: 320, y: 420, w: 160, h: 28 },
+      { x: 560, y: 340, w: 160, h: 28 }
+    ],
+    spikes: [{ x: 400, y: 472, w: 40, h: 40 }],
+    castle: { x: 760, y: 220, w: 160, h: 180 }
+  },
+  {
+    start: { x: 80, y: 372 },
+    blocks: [
+      { x: 80, y: 500, w: 120, h: 26 },
+      { x: 260, y: 420, w: 120, h: 26 },
+      { x: 440, y: 340, w: 120, h: 26 },
+      { x: 620, y: 260, w: 120, h: 26 }
     ],
     spikes: [
-      { x: 480, y: 460, w: 40, h: 40 }
+      { x: 200, y: 472, w: 40, h: 40 },
+      { x: 380, y: 472, w: 40, h: 40 },
+      { x: 560, y: 472, w: 40, h: 40 }
     ],
-    castle: { x: 760, y: 120, w: 160, h: 180 }
+    castle: { x: 760, y: 100, w: 160, h: 180 }
   },
-
-  // LEVEL 2
   {
-    start: { x: 60, y: 360 },
+    start: { x: 80, y: 372 },
     blocks: [
-      { x: 0, y: 500, w: 960, h: 40 },
-      { x: 200, y: 420, w: 120, h: 26 },
-      { x: 420, y: 340, w: 120, h: 26 },
-      { x: 640, y: 260, w: 120, h: 26 }
-    ],
-    spikes: [
-      { x: 150, y: 460, w: 40, h: 40 },
-      { x: 350, y: 460, w: 40, h: 40 },
-      { x: 550, y: 460, w: 40, h: 40 }
-    ],
-    castle: { x: 760, y: 40, w: 160, h: 180 }
-  },
-
-  // LEVEL 3 (HARD)
-  {
-    start: { x: 40, y: 360 },
-    blocks: [
-      { x: 0, y: 500, w: 960, h: 40 },
-      { x: 150, y: 420, w: 90, h: 24 },
-      { x: 320, y: 340, w: 90, h: 24 },
+      { x: 80, y: 500, w: 90, h: 24 },
+      { x: 220, y: 420, w: 90, h: 24 },
+      { x: 360, y: 340, w: 90, h: 24 },
       { x: 500, y: 260, w: 90, h: 24 },
-      { x: 680, y: 180, w: 90, h: 24 }
+      { x: 640, y: 180, w: 90, h: 24 }
     ],
     spikes: [
-      { x: 100, y: 460, w: 40, h: 40 },
-      { x: 260, y: 460, w: 40, h: 40 },
-      { x: 420, y: 460, w: 40, h: 40 },
-      { x: 580, y: 460, w: 40, h: 40 }
+      { x: 160, y: 472, w: 40, h: 40 },
+      { x: 300, y: 472, w: 40, h: 40 },
+      { x: 440, y: 472, w: 40, h: 40 },
+      { x: 580, y: 472, w: 40, h: 40 }
     ],
     castle: { x: 760, y: 0, w: 180, h: 200 }
   }
@@ -126,12 +119,11 @@ function loadLevel(i) {
 
   player.x = l.start.x;
   player.y = l.start.y;
-  player.vx = 0;
-  player.vy = 0;
-  player.onGround = false;
 
   gameOver = false;
   levelComplete = false;
+  jumping = false;
+  jumpFrame = 0;
   winTimer = 0;
 }
 
@@ -164,7 +156,7 @@ function update() {
 
   if (levelComplete) {
     winTimer++;
-    player.vy = -0.3; // wand rise effect
+    player.y -= 0.5; // wand celebration lift
     if (winTimer > 120) {
       currentLevel++;
       if (currentLevel < levels.length) loadLevel(currentLevel);
@@ -173,28 +165,34 @@ function update() {
     return;
   }
 
-  player.vx = (keys.ArrowLeft ? -MOVE_SPEED : 0) +
-              (keys.ArrowRight ? MOVE_SPEED : 0);
+  if (keys.ArrowLeft) player.x -= MOVE_SPEED;
+  if (keys.ArrowRight) player.x += MOVE_SPEED;
 
-  if (keys.Space && player.onGround) {
-    player.vy = -JUMP_FORCE;
-    player.onGround = false;
+  if (keys.Space && !jumping) {
+    jumping = true;
+    jumpFrame = 0;
   }
 
-  player.vy += GRAVITY;
-  player.x += player.vx;
-  player.y += player.vy;
-  player.onGround = false;
+  if (jumping) {
+    const progress = jumpFrame / JUMP_TIME;
+    player.y -= Math.sin(progress * Math.PI) * (JUMP_HEIGHT / JUMP_TIME);
+    jumpFrame++;
+    if (jumpFrame >= JUMP_TIME) jumping = false;
+  }
 
+  player.onBrick = false;
   blocks.forEach(b => {
-    if (hit(player, b)) {
+    if (
+      player.x + player.w > b.x &&
+      player.x < b.x + b.w &&
+      Math.abs(player.y + player.h - b.y) < 6
+    ) {
       player.y = b.y - player.h;
-      player.vy = 0;
-      player.onGround = true;
+      player.onBrick = true;
     }
   });
 
-  if (player.y > FALL_LIMIT) {
+  if (!player.onBrick && !jumping) {
     gameOver = true;
     deathSound.play().catch(() => {});
   }
@@ -208,8 +206,6 @@ function update() {
 
   if (hit(player, castle)) {
     levelComplete = true;
-    player.vx = 0;
-    player.vy = -8;
   }
 }
 
@@ -223,7 +219,7 @@ function draw() {
   blocks.forEach(b => ctx.drawImage(blockImg, b.x, b.y, b.w, b.h));
   spikes.forEach(s => ctx.drawImage(spikeImg, s.x, s.y, s.w, s.h));
 
-  const glow = 18 + Math.sin(Date.now() / 200) * 12;
+  const glow = 20 + Math.sin(Date.now() / 200) * 15;
   ctx.save();
   ctx.shadowColor = "rgba(255,215,120,1)";
   ctx.shadowBlur = glow;
