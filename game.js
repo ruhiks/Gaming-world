@@ -3,17 +3,16 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
 /* ================= CONSTANTS ================= */
+const GRAVITY = 0.8;
 const MOVE_SPEED = 4;
-const JUMP_HEIGHT = 90;
-const JUMP_TIME = 18;
+const JUMP_FORCE = 14;
+const FALL_DEATH_Y = canvas.height + 80;
 
 /* ================= STATE ================= */
+let currentLevel = 0;
 let gameOver = false;
 let levelComplete = false;
 let finalWin = false;
-let currentLevel = 0;
-let jumpFrame = 0;
-let jumping = false;
 let winTimer = 0;
 
 /* ================= BACKGROUND ================= */
@@ -21,12 +20,12 @@ let cloudX1 = 0;
 let cloudX2 = canvas.width;
 const CLOUD_SPEED = 0.25;
 
-/* ================= IMAGE LOADER ================= */
-function img(src) {
+/* ================= LOAD IMAGE ================= */
+const img = src => {
   const i = new Image();
   i.src = src;
   return i;
-}
+};
 
 /* ================= ASSETS ================= */
 const bg = img("assets/bg.png");
@@ -41,7 +40,6 @@ bgm.loop = true;
 bgm.volume = 0.4;
 
 const deathSound = new Audio("assets/death.mp3");
-deathSound.volume = 0.8;
 
 let audioUnlocked = false;
 window.addEventListener("keydown", () => {
@@ -53,62 +51,73 @@ window.addEventListener("keydown", () => {
 
 /* ================= PLAYER ================= */
 const player = {
-  x: 0,
-  y: 0,
-  w: 96,
-  h: 128,
-  onBrick: false
+  x: 0, y: 0,
+  w: 96, h: 128,
+  vx: 0, vy: 0,
+  onGround: false
 };
+
+/* ================= PARTICLES (WAND LIGHT) ================= */
+let particles = [];
+
+function spawnParticles(x, y) {
+  for (let i = 0; i < 20; i++) {
+    particles.push({
+      x, y,
+      vx: (Math.random() - 0.5) * 2,
+      vy: -Math.random() * 2,
+      life: 40
+    });
+  }
+}
 
 /* ================= LEVELS ================= */
 const levels = [
   {
-    start: { x: 80, y: 372 },
+    start: { x: 80, y: 350 },
     blocks: [
-      { x: 80, y: 500, w: 160, h: 28 },
-      { x: 320, y: 420, w: 160, h: 28 },
-      { x: 560, y: 340, w: 160, h: 28 }
+      { x: 0, y: 500, w: 960, h: 40 },
+      { x: 280, y: 420, w: 140, h: 28 },
+      { x: 540, y: 340, w: 140, h: 28 }
     ],
-    spikes: [{ x: 400, y: 472, w: 40, h: 40 }],
-    castle: { x: 760, y: 220, w: 160, h: 180 }
+    spikes: [{ x: 420, y: 460, w: 40, h: 40 }],
+    castle: { x: 760, y: 120, w: 160, h: 180 }
   },
   {
-    start: { x: 80, y: 372 },
+    start: { x: 60, y: 350 },
     blocks: [
-      { x: 80, y: 500, w: 120, h: 26 },
-      { x: 260, y: 420, w: 120, h: 26 },
-      { x: 440, y: 340, w: 120, h: 26 },
-      { x: 620, y: 260, w: 120, h: 26 }
+      { x: 0, y: 500, w: 960, h: 40 },
+      { x: 200, y: 420, w: 120, h: 26 },
+      { x: 420, y: 340, w: 120, h: 26 },
+      { x: 640, y: 260, w: 120, h: 26 }
     ],
     spikes: [
-      { x: 200, y: 472, w: 40, h: 40 },
-      { x: 380, y: 472, w: 40, h: 40 },
-      { x: 560, y: 472, w: 40, h: 40 }
+      { x: 160, y: 460, w: 40, h: 40 },
+      { x: 360, y: 460, w: 40, h: 40 },
+      { x: 560, y: 460, w: 40, h: 40 }
     ],
-    castle: { x: 760, y: 100, w: 160, h: 180 }
+    castle: { x: 760, y: 40, w: 160, h: 180 }
   },
   {
-    start: { x: 80, y: 372 },
+    start: { x: 40, y: 350 },
     blocks: [
-      { x: 80, y: 500, w: 90, h: 24 },
-      { x: 220, y: 420, w: 90, h: 24 },
-      { x: 360, y: 340, w: 90, h: 24 },
+      { x: 0, y: 500, w: 960, h: 40 },
+      { x: 150, y: 420, w: 90, h: 24 },
+      { x: 320, y: 340, w: 90, h: 24 },
       { x: 500, y: 260, w: 90, h: 24 },
-      { x: 640, y: 180, w: 90, h: 24 }
+      { x: 680, y: 180, w: 90, h: 24 }
     ],
     spikes: [
-      { x: 160, y: 472, w: 40, h: 40 },
-      { x: 300, y: 472, w: 40, h: 40 },
-      { x: 440, y: 472, w: 40, h: 40 },
-      { x: 580, y: 472, w: 40, h: 40 }
+      { x: 120, y: 460, w: 40, h: 40 },
+      { x: 300, y: 460, w: 40, h: 40 },
+      { x: 480, y: 460, w: 40, h: 40 },
+      { x: 660, y: 460, w: 40, h: 40 }
     ],
     castle: { x: 760, y: 0, w: 180, h: 200 }
   }
 ];
 
-let blocks = [];
-let spikes = [];
-let castle = {};
+let blocks = [], spikes = [], castle = {};
 
 /* ================= LOAD LEVEL ================= */
 function loadLevel(i) {
@@ -119,12 +128,13 @@ function loadLevel(i) {
 
   player.x = l.start.x;
   player.y = l.start.y;
+  player.vx = 0;
+  player.vy = 0;
 
   gameOver = false;
   levelComplete = false;
-  jumping = false;
-  jumpFrame = 0;
   winTimer = 0;
+  particles = [];
 }
 
 /* ================= INPUT ================= */
@@ -136,14 +146,11 @@ window.addEventListener("keydown", e => {
 window.addEventListener("keyup", e => keys[e.code] = false);
 
 /* ================= COLLISION ================= */
-function hit(a, b) {
-  return (
-    a.x < b.x + b.w &&
-    a.x + a.w > b.x &&
-    a.y < b.y + b.h &&
-    a.y + a.h > b.y
-  );
-}
+const hit = (a, b) =>
+  a.x < b.x + b.w &&
+  a.x + a.w > b.x &&
+  a.y < b.y + b.h &&
+  a.y + a.h > b.y;
 
 /* ================= UPDATE ================= */
 function update() {
@@ -152,11 +159,11 @@ function update() {
   if (cloudX1 <= -canvas.width) cloudX1 = canvas.width;
   if (cloudX2 <= -canvas.width) cloudX2 = canvas.width;
 
-  if (gameOver) return;
+  if (gameOver || finalWin) return;
 
   if (levelComplete) {
     winTimer++;
-    player.y -= 0.5; // wand celebration lift
+    spawnParticles(player.x + player.w / 2, player.y + 20);
     if (winTimer > 120) {
       currentLevel++;
       if (currentLevel < levels.length) loadLevel(currentLevel);
@@ -165,34 +172,29 @@ function update() {
     return;
   }
 
-  if (keys.ArrowLeft) player.x -= MOVE_SPEED;
-  if (keys.ArrowRight) player.x += MOVE_SPEED;
+  player.vx =
+    (keys.ArrowLeft ? -MOVE_SPEED : 0) +
+    (keys.ArrowRight ? MOVE_SPEED : 0);
 
-  if (keys.Space && !jumping) {
-    jumping = true;
-    jumpFrame = 0;
+  if (keys.Space && player.onGround) {
+    player.vy = -JUMP_FORCE;
+    player.onGround = false;
   }
 
-  if (jumping) {
-    const progress = jumpFrame / JUMP_TIME;
-    player.y -= Math.sin(progress * Math.PI) * (JUMP_HEIGHT / JUMP_TIME);
-    jumpFrame++;
-    if (jumpFrame >= JUMP_TIME) jumping = false;
-  }
+  player.vy += GRAVITY;
+  player.x += player.vx;
+  player.y += player.vy;
 
-  player.onBrick = false;
+  player.onGround = false;
   blocks.forEach(b => {
-    if (
-      player.x + player.w > b.x &&
-      player.x < b.x + b.w &&
-      Math.abs(player.y + player.h - b.y) < 6
-    ) {
+    if (hit(player, b) && player.vy >= 0) {
       player.y = b.y - player.h;
-      player.onBrick = true;
+      player.vy = 0;
+      player.onGround = true;
     }
   });
 
-  if (!player.onBrick && !jumping) {
+  if (!player.onGround && player.y > FALL_DEATH_Y) {
     gameOver = true;
     deathSound.play().catch(() => {});
   }
@@ -206,7 +208,16 @@ function update() {
 
   if (hit(player, castle)) {
     levelComplete = true;
+    player.vx = 0;
+    player.vy = 0;
   }
+
+  particles.forEach(p => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life--;
+  });
+  particles = particles.filter(p => p.life > 0);
 }
 
 /* ================= DRAW ================= */
@@ -219,14 +230,18 @@ function draw() {
   blocks.forEach(b => ctx.drawImage(blockImg, b.x, b.y, b.w, b.h));
   spikes.forEach(s => ctx.drawImage(spikeImg, s.x, s.y, s.w, s.h));
 
-  const glow = 20 + Math.sin(Date.now() / 200) * 15;
   ctx.save();
   ctx.shadowColor = "rgba(255,215,120,1)";
-  ctx.shadowBlur = glow;
+  ctx.shadowBlur = 20;
   ctx.drawImage(castleImg, castle.x, castle.y, castle.w, castle.h);
   ctx.restore();
 
   ctx.drawImage(wizardImg, player.x, player.y, player.w, player.h);
+
+  particles.forEach(p => {
+    ctx.fillStyle = "rgba(255,215,150,0.8)";
+    ctx.fillRect(p.x, p.y, 4, 4);
+  });
 
   ctx.fillStyle = "white";
   ctx.font = "18px Arial";
