@@ -1,261 +1,257 @@
-/* ================= CANVAS ================= */
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
+document.addEventListener("DOMContentLoaded", () => {
 
-/* ================= CONSTANTS ================= */
-const GRAVITY = 0.8;
-const SPEED = 4;
-const JUMP = 15;
-const FALL_DEATH_Y = canvas.height + 100;
-
-/* ================= STATE ================= */
-let levelIndex = 0;
-let gameOver = false;
-let levelWin = false;
-let winTimer = 0;
-let rotate = 0;
-
-/* ================= ASSETS ================= */
-const load = src => {
-  const i = new Image();
-  i.src = src;
-  return i;
-};
-
-const bg = load("assets/bg.png");
-const wizard = load("assets/wizard.png");
-const blockImg = load("assets/block.png");
-const castleImg = load("assets/castle.png");
-
-/* ================= AUDIO ================= */
-const bgm = new Audio("assets/music.mp3");
-bgm.loop = true;
-bgm.volume = 0.4;
-
-const deathSound = new Audio("assets/death.mp3");
-
-let audioStarted = false;
-window.addEventListener("keydown", () => {
-  if (!audioStarted) {
-    bgm.play().catch(() => {});
-    audioStarted = true;
-  }
-}, { once: true });
-
-/* ================= PLAYER ================= */
-const player = {
-  x: 0, y: 0,
-  w: 96, h: 128,
-  vx: 0, vy: 0,
-  onGround: false
-};
-
-/* ================= SPARKLES ================= */
-let particles = [];
-function sparkle(x, y) {
-  for (let i = 0; i < 20; i++) {
-    particles.push({
-      x, y,
-      vx: (Math.random() - 0.5) * 2,
-      vy: -Math.random() * 2,
-      life: 40
-    });
-  }
-}
-
-/* ================= LEVELS ================= */
-const levels = [
-  {
-    start: { x: 80, y: 360 },
-    blocks: [
-      { x: 0, y: 500, w: 960, h: 40 },
-      { x: 320, y: 420, w: 160, h: 28 },
-      { x: 580, y: 340, w: 160, h: 28 }
-    ],
-    castle: { x: 760, y: 120, w: 160, h: 180 }
-  },
-  {
-    start: { x: 60, y: 360 },
-    blocks: [
-      { x: 0, y: 500, w: 960, h: 40 },
-      { x: 240, y: 420, w: 120, h: 26 },
-      { x: 440, y: 340, w: 120, h: 26 },
-      { x: 640, y: 260, w: 120, h: 26 }
-    ],
-    castle: { x: 760, y: 60, w: 160, h: 180 }
-  },
-  {
-    start: { x: 40, y: 360 },
-    blocks: [
-      { x: 0, y: 500, w: 960, h: 40 },
-      { x: 160, y: 420, w: 90, h: 24 },
-      { x: 320, y: 340, w: 90, h: 24 },
-      { x: 480, y: 260, w: 90, h: 24 },
-      { x: 640, y: 180, w: 90, h: 24 }
-    ],
-    castle: { x: 760, y: 0, w: 180, h: 200 }
-  }
-];
-
-let blocks = [];
-let castle = {};
-
-/* ================= LOAD LEVEL ================= */
-function loadLevel(i) {
-  const l = levels[i];
-  blocks = l.blocks;
-  castle = l.castle;
-
-  player.x = l.start.x;
-  player.y = l.start.y;
-  player.vx = 0;
-  player.vy = 0;
-  player.onGround = false;
-
-  gameOver = false;
-  levelWin = false;
-  winTimer = 0;
-  rotate = 0;
-  particles = [];
-}
-
-/* ================= INPUT ================= */
-const keys = {};
-window.addEventListener("keydown", e => {
-  keys[e.code] = true;
-  if (gameOver && e.code === "KeyR") loadLevel(levelIndex);
-});
-window.addEventListener("keyup", e => keys[e.code] = false);
-
-/* ================= COLLISION ================= */
-const hit = (a, b) =>
-  a.x < b.x + b.w &&
-  a.x + a.w > b.x &&
-  a.y < b.y + b.h &&
-  a.y + a.h > b.y;
-
-/* ================= UPDATE ================= */
-function update() {
-  if (gameOver) return;
-
-  if (levelWin) {
-    winTimer++;
-    rotate += 0.03;
-    sparkle(player.x + player.w / 2, player.y + 30);
-
-    if (winTimer > 120) {
-      levelIndex++;
-      if (levelIndex < levels.length) loadLevel(levelIndex);
-    }
+  /* ================= CANVAS ================= */
+  const canvas = document.getElementById("gameCanvas");
+  if (!canvas) {
+    console.error("Canvas not found");
     return;
   }
+  const ctx = canvas.getContext("2d");
 
-  /* Movement */
-  player.vx = 0;
-  if (keys.ArrowLeft) player.vx = -SPEED;
-  if (keys.ArrowRight) player.vx = SPEED;
+  /* ================= CONSTANTS ================= */
+  const GRAVITY = 0.8;
+  const SPEED = 4;
+  const JUMP = 15;
+  const FALL_DEATH_Y = canvas.height + 100;
 
-  if (keys.Space && player.onGround) {
-    player.vy = -JUMP;
-    player.onGround = false;
-  }
+  /* ================= STATE ================= */
+  let levelIndex = 0;
+  let gameOver = false;
+  let levelWin = false;
+  let winTimer = 0;
+  let rotate = 0;
 
-  player.vy += GRAVITY;
-  player.x += player.vx;
-  player.y += player.vy;
+  /* ================= ASSETS ================= */
+  const load = src => {
+    const i = new Image();
+    i.src = src;
+    return i;
+  };
 
-  /* Platforms */
-  player.onGround = false;
-  blocks.forEach(b => {
-    if (
-      hit(player, b) &&
-      player.vy >= 0 &&
-      player.y + player.h - player.vy <= b.y
-    ) {
-      player.y = b.y - player.h;
-      player.vy = 0;
-      player.onGround = true;
+  const bg = load("assets/bg.png");
+  const wizard = load("assets/wizard.png");
+  const blockImg = load("assets/block.png");
+  const castleImg = load("assets/castle.png");
+
+  /* ================= AUDIO ================= */
+  const bgm = new Audio("assets/music.mp3");
+  bgm.loop = true;
+  bgm.volume = 0.4;
+
+  const deathSound = new Audio("assets/death.mp3");
+
+  let audioStarted = false;
+  window.addEventListener("keydown", () => {
+    if (!audioStarted) {
+      bgm.play().catch(() => {});
+      audioStarted = true;
     }
-  });
+  }, { once: true });
 
-  /* Death by fall */
-  if (player.y > FALL_DEATH_Y) {
-    gameOver = true;
-    deathSound.play().catch(() => {});
+  /* ================= PLAYER ================= */
+  const player = {
+    x: 0, y: 0,
+    w: 96, h: 128,
+    vx: 0, vy: 0,
+    onGround: false
+  };
+
+  /* ================= SPARKLES ================= */
+  let particles = [];
+  function sparkle(x, y) {
+    for (let i = 0; i < 20; i++) {
+      particles.push({
+        x, y,
+        vx: (Math.random() - 0.5) * 2,
+        vy: -Math.random() * 2,
+        life: 40
+      });
+    }
   }
 
-  /* Win */
-  if (hit(player, castle)) {
-    levelWin = true;
+  /* ================= LEVELS ================= */
+  const levels = [
+    {
+      start: { x: 80, y: 360 },
+      blocks: [
+        { x: 0, y: 500, w: 960, h: 40 },
+        { x: 320, y: 420, w: 160, h: 28 },
+        { x: 580, y: 340, w: 160, h: 28 }
+      ],
+      castle: { x: 760, y: 120, w: 160, h: 180 }
+    },
+    {
+      start: { x: 60, y: 360 },
+      blocks: [
+        { x: 0, y: 500, w: 960, h: 40 },
+        { x: 240, y: 420, w: 120, h: 26 },
+        { x: 440, y: 340, w: 120, h: 26 },
+        { x: 640, y: 260, w: 120, h: 26 }
+      ],
+      castle: { x: 760, y: 60, w: 160, h: 180 }
+    },
+    {
+      start: { x: 40, y: 360 },
+      blocks: [
+        { x: 0, y: 500, w: 960, h: 40 },
+        { x: 160, y: 420, w: 90, h: 24 },
+        { x: 320, y: 340, w: 90, h: 24 },
+        { x: 480, y: 260, w: 90, h: 24 },
+        { x: 640, y: 180, w: 90, h: 24 }
+      ],
+      castle: { x: 760, y: 0, w: 180, h: 200 }
+    }
+  ];
+
+  let blocks = [];
+  let castle = {};
+
+  /* ================= LOAD LEVEL ================= */
+  function loadLevel(i) {
+    const l = levels[i];
+    blocks = l.blocks;
+    castle = l.castle;
+
+    player.x = l.start.x;
+    player.y = l.start.y;
     player.vx = 0;
     player.vy = 0;
+    player.onGround = false;
+
+    gameOver = false;
+    levelWin = false;
+    winTimer = 0;
+    rotate = 0;
+    particles = [];
   }
 
-  particles.forEach(p => {
-    p.x += p.vx;
-    p.y += p.vy;
-    p.life--;
+  /* ================= INPUT ================= */
+  const keys = {};
+  window.addEventListener("keydown", e => {
+    keys[e.code] = true;
+    if (gameOver && e.code === "KeyR") loadLevel(levelIndex);
   });
-  particles = particles.filter(p => p.life > 0);
-}
+  window.addEventListener("keyup", e => keys[e.code] = false);
 
-/* ================= DRAW ================= */
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  /* ================= COLLISION ================= */
+  const hit = (a, b) =>
+    a.x < b.x + b.w &&
+    a.x + a.w > b.x &&
+    a.y < b.y + b.h &&
+    a.y + a.h > b.y;
 
-  ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
+  /* ================= UPDATE ================= */
+  function update() {
+    if (gameOver) return;
 
-  blocks.forEach(b => ctx.drawImage(blockImg, b.x, b.y, b.w, b.h));
+    if (levelWin) {
+      winTimer++;
+      rotate += 0.03;
+      sparkle(player.x + player.w / 2, player.y + 30);
+      if (winTimer > 120) {
+        levelIndex++;
+        if (levelIndex < levels.length) loadLevel(levelIndex);
+      }
+      return;
+    }
 
-  ctx.save();
-  ctx.shadowColor = "gold";
-  ctx.shadowBlur = 20;
-  ctx.drawImage(castleImg, castle.x, castle.y, castle.w, castle.h);
-  ctx.restore();
+    player.vx = 0;
+    if (keys.ArrowLeft) player.vx = -SPEED;
+    if (keys.ArrowRight) player.vx = SPEED;
 
-  ctx.drawImage(wizard, player.x, player.y, player.w, player.h);
+    if (keys.Space && player.onGround) {
+      player.vy = -JUMP;
+      player.onGround = false;
+    }
 
-  particles.forEach(p => {
-    ctx.fillStyle = "rgba(255,215,160,0.8)";
-    ctx.fillRect(p.x, p.y, 4, 4);
-  });
+    player.vy += GRAVITY;
+    player.x += player.vx;
+    player.y += player.vy;
 
-  ctx.fillStyle = "white";
-  ctx.font = "18px Arial";
-  ctx.fillText(`Dungeon Level ${levelIndex + 1}`, 20, 30);
+    player.onGround = false;
+    blocks.forEach(b => {
+      if (
+        hit(player, b) &&
+        player.vy >= 0 &&
+        player.y + player.h - player.vy <= b.y
+      ) {
+        player.y = b.y - player.h;
+        player.vy = 0;
+        player.onGround = true;
+      }
+    });
 
-  if (gameOver) {
-    ctx.font = "40px Arial";
-    ctx.fillText("YOU DIED", 360, 260);
-    ctx.font = "20px Arial";
-    ctx.fillText("Press R to Retry", 360, 300);
+    if (player.y > FALL_DEATH_Y) {
+      gameOver = true;
+      deathSound.play().catch(() => {});
+    }
+
+    if (hit(player, castle)) {
+      levelWin = true;
+      player.vx = 0;
+      player.vy = 0;
+    }
+
+    particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life--;
+    });
+    particles = particles.filter(p => p.life > 0);
   }
 
-  if (levelWin) {
+  /* ================= DRAW ================= */
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
+    blocks.forEach(b => ctx.drawImage(blockImg, b.x, b.y, b.w, b.h));
+
     ctx.save();
-    ctx.translate(canvas.width / 2, canvas.height / 2);
-    ctx.rotate(Math.sin(rotate) * 0.15);
-    ctx.font = "34px Arial";
-    ctx.fillText("LEVEL COMPLETED", -160, 0);
+    ctx.shadowColor = "gold";
+    ctx.shadowBlur = 20;
+    ctx.drawImage(castleImg, castle.x, castle.y, castle.w, castle.h);
     ctx.restore();
+
+    ctx.drawImage(wizard, player.x, player.y, player.w, player.h);
+
+    particles.forEach(p => {
+      ctx.fillStyle = "rgba(255,215,160,0.8)";
+      ctx.fillRect(p.x, p.y, 4, 4);
+    });
+
+    ctx.fillStyle = "white";
+    ctx.font = "18px Arial";
+    ctx.fillText(`Dungeon Level ${levelIndex + 1}`, 20, 30);
+
+    if (gameOver) {
+      ctx.font = "40px Arial";
+      ctx.fillText("YOU DIED", 360, 260);
+      ctx.font = "20px Arial";
+      ctx.fillText("Press R to Retry", 360, 300);
+    }
+
+    if (levelWin) {
+      ctx.save();
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate(Math.sin(rotate) * 0.15);
+      ctx.font = "34px Arial";
+      ctx.fillText("LEVEL COMPLETED", -160, 0);
+      ctx.restore();
+    }
   }
-}
 
-/* ================= LOOP ================= */
-function loop() {
-  update();
-  draw();
-  requestAnimationFrame(loop);
-}
+  /* ================= LOOP ================= */
+  function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  }
 
-loadLevel(0);
-loop();
+  loadLevel(0);
+  loop();
 
-
-
-
-
-
+});
 
 
 
