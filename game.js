@@ -2,35 +2,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /* ================= CANVAS ================= */
   const canvas = document.getElementById("gameCanvas");
-  if (!canvas) {
-    console.error("Canvas not found");
-    return;
-  }
   const ctx = canvas.getContext("2d");
 
   /* ================= CONSTANTS ================= */
-  const GRAVITY = 0.8;
+  const GRAVITY = 0.9;
   const SPEED = 4;
   const JUMP = 15;
-  const FALL_DEATH_Y = canvas.height + 100;
+  const FAST_FALL = 1.6;
+  const FALL_DEATH_Y = canvas.height + 80;
 
   /* ================= STATE ================= */
   let levelIndex = 0;
   let gameOver = false;
   let levelWin = false;
+  let finalWin = false;
   let winTimer = 0;
   let rotate = 0;
 
   /* ================= ASSETS ================= */
-  const load = src => {
-    const i = new Image();
-    i.src = src;
-    return i;
-  };
-
+  const load = src => { const i = new Image(); i.src = src; return i; };
   const bg = load("assets/bg.png");
   const wizard = load("assets/wizard.png");
   const blockImg = load("assets/block.png");
+  const spikeImg = load("assets/spike.png");
   const castleImg = load("assets/castle.png");
 
   /* ================= AUDIO ================= */
@@ -56,7 +50,7 @@ document.addEventListener("DOMContentLoaded", () => {
     onGround: false
   };
 
-  /* ================= SPARKLES ================= */
+  /* ================= WAND SPARKLES ================= */
   let particles = [];
   function sparkle(x, y) {
     for (let i = 0; i < 20; i++) {
@@ -78,6 +72,7 @@ document.addEventListener("DOMContentLoaded", () => {
         { x: 320, y: 420, w: 160, h: 28 },
         { x: 580, y: 340, w: 160, h: 28 }
       ],
+      spikes: [{ x: 450, y: 460, w: 40, h: 40 }],
       castle: { x: 760, y: 120, w: 160, h: 180 }
     },
     {
@@ -87,6 +82,11 @@ document.addEventListener("DOMContentLoaded", () => {
         { x: 240, y: 420, w: 120, h: 26 },
         { x: 440, y: 340, w: 120, h: 26 },
         { x: 640, y: 260, w: 120, h: 26 }
+      ],
+      spikes: [
+        { x: 200, y: 460, w: 40, h: 40 },
+        { x: 400, y: 460, w: 40, h: 40 },
+        { x: 600, y: 460, w: 40, h: 40 }
       ],
       castle: { x: 760, y: 60, w: 160, h: 180 }
     },
@@ -99,17 +99,22 @@ document.addEventListener("DOMContentLoaded", () => {
         { x: 480, y: 260, w: 90, h: 24 },
         { x: 640, y: 180, w: 90, h: 24 }
       ],
+      spikes: [
+        { x: 120, y: 460, w: 40, h: 40 },
+        { x: 300, y: 460, w: 40, h: 40 },
+        { x: 480, y: 460, w: 40, h: 40 },
+        { x: 660, y: 460, w: 40, h: 40 }
+      ],
       castle: { x: 760, y: 0, w: 180, h: 200 }
     }
   ];
 
-  let blocks = [];
-  let castle = {};
+  let blocks = [], spikes = [], castle = {};
 
-  /* ================= LOAD LEVEL ================= */
   function loadLevel(i) {
     const l = levels[i];
     blocks = l.blocks;
+    spikes = l.spikes;
     castle = l.castle;
 
     player.x = l.start.x;
@@ -142,7 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /* ================= UPDATE ================= */
   function update() {
-    if (gameOver) return;
+    if (gameOver || finalWin) return;
 
     if (levelWin) {
       winTimer++;
@@ -151,6 +156,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (winTimer > 120) {
         levelIndex++;
         if (levelIndex < levels.length) loadLevel(levelIndex);
+        else finalWin = true;
       }
       return;
     }
@@ -158,6 +164,7 @@ document.addEventListener("DOMContentLoaded", () => {
     player.vx = 0;
     if (keys.ArrowLeft) player.vx = -SPEED;
     if (keys.ArrowRight) player.vx = SPEED;
+    if (keys.ArrowDown) player.vy += FAST_FALL;
 
     if (keys.Space && player.onGround) {
       player.vy = -JUMP;
@@ -186,6 +193,13 @@ document.addEventListener("DOMContentLoaded", () => {
       deathSound.play().catch(() => {});
     }
 
+    spikes.forEach(s => {
+      if (hit(player, s)) {
+        gameOver = true;
+        deathSound.play().catch(() => {});
+      }
+    });
+
     if (hit(player, castle)) {
       levelWin = true;
       player.vx = 0;
@@ -206,6 +220,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
     blocks.forEach(b => ctx.drawImage(blockImg, b.x, b.y, b.w, b.h));
+    spikes.forEach(s => ctx.drawImage(spikeImg, s.x, s.y, s.w, s.h));
 
     ctx.save();
     ctx.shadowColor = "gold";
@@ -239,9 +254,13 @@ document.addEventListener("DOMContentLoaded", () => {
       ctx.fillText("LEVEL COMPLETED", -160, 0);
       ctx.restore();
     }
+
+    if (finalWin) {
+      ctx.font = "42px Arial";
+      ctx.fillText("DUNGEON CLEARED!", 250, 260);
+    }
   }
 
-  /* ================= LOOP ================= */
   function loop() {
     update();
     draw();
@@ -252,6 +271,7 @@ document.addEventListener("DOMContentLoaded", () => {
   loop();
 
 });
+
 
 
 
