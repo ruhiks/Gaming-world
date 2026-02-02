@@ -1,3 +1,4 @@
+"use strict";
 document.addEventListener("DOMContentLoaded", () => {
     /* ================= CANVAS ================= */
     const canvas = document.getElementById("gameCanvas");
@@ -8,17 +9,19 @@ document.addEventListener("DOMContentLoaded", () => {
     const JUMP = 16;
     const FAST_FALL = 2.0;
     const FALL_DEATH_Y = canvas.height + 80;
-    const BG_SCROLL_SPEED = 1.0;
+    const CLOUD_SPEED = 1.0;
     /* ================= STATE ================= */
     let levelIndex = 0;
     let gameOver = false;
     let levelWin = false;
     let finalWin = false;
     let winTimer = 0;
-    let wandAngle = 0;   // For animation
-    let textScale = 0;   // For text zoom
-    // Background scrolling state
+    // Animation vars
+    let wandAngle = 0;
+    let textScale = 0;
+    // Background vars
     let bgX = 0;
+    let colorTick = 0;
     /* ================= ASSETS ================= */
     const load = src => { const i = new Image(); i.src = src; return i; };
     const bg = load("assets/bg.png");
@@ -31,7 +34,6 @@ document.addEventListener("DOMContentLoaded", () => {
     bgm.loop = true;
     bgm.volume = 0.4;
     const deathSound = new Audio("assets/death.mp3");
-    // Click/Key to start audio
     let audioStarted = false;
     const startAudio = () => {
         if (!audioStarted) {
@@ -44,72 +46,77 @@ document.addEventListener("DOMContentLoaded", () => {
     /* ================= PLAYER ================= */
     const player = {
         x: 0, y: 0,
-        w: 80, h: 80, // Little big character
+        w: 64, h: 64, // Slightly smaller hitbox for better feel (Visual is drawn larger if needed)
+        visualW: 80, visualH: 80, // Draw size
         vx: 0, vy: 0,
         onGround: false,
         facingRight: true
     };
     /* ================= PARTICLES ================= */
     let particles = [];
-    function spawnSparkles(x, y, count = 10, color = "white") {
+    let castleParticles = [];
+    function spawnSparkles(list, x, y, count, colors) {
         for (let i = 0; i < count; i++) {
-            particles.push({
+            list.push({
                 x, y,
-                vx: (Math.random() - 0.5) * 5,
-                vy: (Math.random() - 0.5) * 5,
-                life: 40 + Math.random() * 20,
-                color: color,
-                size: Math.random() * 4 + 2
+                vx: (Math.random() - 0.5) * 4,
+                vy: (Math.random() - 0.5) * 4,
+                life: 40 + Math.random() * 30,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                size: Math.random() * 3 + 1
             });
         }
     }
     /* ================= LEVELS ================= */
+    // Note: Blocks are wider now to give "space to stand"
     const levels = [
-        // LEVEL 1: Intro (Easy)
+        // LEVEL 1: Intro (Easy but with spike)
         {
             start: { x: 50, y: 400 },
             blocks: [
                 { x: 0, y: 500, w: 960, h: 40 }, // Ground
-                { x: 300, y: 430, w: 150, h: 32 },
-                { x: 600, y: 350, w: 150, h: 32 }
+                { x: 300, y: 430, w: 180, h: 32 }, // Wider platform
+                { x: 600, y: 350, w: 180, h: 32 }
             ],
             spikes: [
-                { x: 400, y: 460, w: 40, h: 40 } // Spike on ground
+                { x: 400, y: 465, w: 40, h: 35 }, // Spike on ground (lowered collision)
+                { x: 660, y: 315, w: 40, h: 35 }
             ],
             castle: { x: 800, y: 200, w: 140, h: 180 }
         },
-        // LEVEL 2: Moderate (Gaps & Spikes)
+        // LEVEL 2: The Climb (Harder)
         {
             start: { x: 50, y: 400 },
             blocks: [
-                { x: 0, y: 500, w: 250, h: 40 },
-                { x: 300, y: 420, w: 120, h: 32 },
-                { x: 500, y: 350, w: 120, h: 32 },
+                { x: 0, y: 500, w: 300, h: 40 },
+                { x: 350, y: 420, w: 140, h: 32 },
+                { x: 550, y: 350, w: 140, h: 32 },
                 { x: 750, y: 300, w: 210, h: 32 }
             ],
             spikes: [
-                { x: 220, y: 500, w: 100, h: 32 }, // Floor spikes
-                { x: 340, y: 388, w: 40, h: 32 },  // Platform spike
+                { x: 280, y: 500, w: 70, h: 32 }, // Floor spikes gap
+                { x: 400, y: 388, w: 40, h: 32 }, // Platform spike
+                { x: 600, y: 318, w: 40, h: 32 }
             ],
-            castle: { x: 800, y: 140, w: 140, h: 180 }
+            castle: { x: 820, y: 140, w: 140, h: 180 }
         },
-        // LEVEL 3: HARD (High precision, many spikes)
+        // LEVEL 3: Use the Spells (Hard)
+        // More precision required, but blocks are fair size
         {
             start: { x: 30, y: 450 },
             blocks: [
-                { x: 0, y: 520, w: 120, h: 32 },
-                { x: 180, y: 450, w: 100, h: 32 },
-                { x: 350, y: 380, w: 100, h: 32 },
-                { x: 520, y: 310, w: 100, h: 32 },
-                { x: 690, y: 240, w: 100, h: 32 },
-                { x: 830, y: 240, w: 130, h: 32 }
+                { x: 0, y: 520, w: 150, h: 32 },
+                { x: 220, y: 440, w: 120, h: 32 }, // Gap requires jump
+                { x: 400, y: 360, w: 120, h: 32 },
+                { x: 580, y: 280, w: 120, h: 32 },
+                { x: 740, y: 200, w: 180, h: 32 }  // Castle platform
             ],
             spikes: [
-                { x: 230, y: 418, w: 40, h: 32 },
-                { x: 400, y: 348, w: 40, h: 32 },
-                { x: 570, y: 278, w: 40, h: 32 }
+                { x: 260, y: 408, w: 40, h: 32 }, // Spike ON platform requiring precision
+                { x: 440, y: 328, w: 40, h: 32 },
+                { x: 620, y: 248, w: 40, h: 32 }
             ],
-            castle: { x: 810, y: 30, w: 140, h: 200 }
+            castle: { x: 760, y: 20, w: 140, h: 180 }
         }
     ];
     let blocks = [], spikes = [], castle = {};
@@ -133,75 +140,83 @@ document.addEventListener("DOMContentLoaded", () => {
         wandAngle = 0;
         textScale = 0;
         particles = [];
+        castleParticles = [];
     }
-    /* ================= INPUT ================= */
+    /* ================= COLLISIONS ================= */
+    // Strict AABB
+    function hit(a, b) {
+        return a.x < b.x + b.w &&
+            a.x + a.w > b.x &&
+            a.y < b.y + b.h &&
+            a.y + a.h > b.y;
+    }
+    // Forgiving hitbox for spikes (Must overlap significantly)
+    // Padding reduces the "kill zone" size inside the sprite
+    function hitSpike(p, s) {
+        const padding = 15; // 15 pixels forgiveness on each side
+        return p.x + padding < s.x + s.w - padding &&
+            p.x + p.w - padding > s.x + padding &&
+            p.y + padding < s.y + s.h - 5 && // Less padding on bottom (ground)
+            p.y + p.h - padding > s.y + 10;
+    }
+    /* ================= GAME LOOP ================= */
+    // Input
     const keys = {};
     window.addEventListener("keydown", e => {
         keys[e.code] = true;
         if (gameOver && e.code === "KeyR") loadLevel(levelIndex);
     });
     window.addEventListener("keyup", e => keys[e.code] = false);
-    /* ================= COLLISION ================= */
-    const hit = (a, b) =>
-        a.x < b.x + b.w &&
-        a.x + a.w > b.x &&
-        a.y < b.y + b.h &&
-        a.y + a.h > b.y;
-    /* ================= UPDATE ================= */
     function update() {
-        // Scroll Background
-        bgX -= BG_SCROLL_SPEED;
+        // Magical Background
+        bgX -= CLOUD_SPEED;
         if (bgX <= -canvas.width) bgX = 0;
+        colorTick += 0.02;
         if (gameOver || finalWin) return;
-        // == WIN ANIMATION SEQUENCE ==
+        // == CASTLE SPARKLES (Always) ==
+        if (Math.random() < 0.3) {
+            spawnSparkles(castleParticles,
+                castle.x + Math.random() * castle.w,
+                castle.y + Math.random() * castle.h,
+                1, ["#FFD700", "#FFF"]);
+        }
+        // == WIN ANIMATION ==
         if (levelWin) {
             winTimer++;
-            // 1. Raise Wand (First 40 frames)
-            if (winTimer < 40) {
-                wandAngle = (winTimer / 40) * (-Math.PI / 3); // ~60 degrees up
+            // Raise Wand
+            if (winTimer < 45) {
+                wandAngle = (winTimer / 45) * (-Math.PI / 2.5);
             }
-            // 2. Emit Sparkles & Show Text (At frame 40)
-            if (winTimer >= 40) {
-                if (winTimer === 40) {
-                    // Burst of sparkles from wand tip
-                    const tipX = player.facingRight ? player.x + player.w + 10 : player.x - 10;
-                    const tipY = player.y + 10;
-                    spawnSparkles(tipX, tipY, 30, "gold");
-                    spawnSparkles(tipX, tipY, 15, "cyan");
+            // Sparkles
+            if (winTimer >= 45) {
+                const tipX = player.facingRight ? player.x + player.w + 12 : player.x - 12;
+                const tipY = player.y + 12;
+                if (winTimer === 45) {
+                    spawnSparkles(particles, tipX, tipY, 40, ["#FFD700", "#00FFFF", "#FFFFFF"]);
                 }
-                // Continuous small sparkles
-                if (winTimer % 5 === 0) {
-                    const tipX = player.facingRight ? player.x + player.w + 10 : player.x - 10;
-                    spawnSparkles(tipX, player.y + 10, 2, "white");
+                if (winTimer % 4 === 0) {
+                    spawnSparkles(particles, tipX, player.y + 10, 2, ["#00FFFF", "#FFF"]);
                 }
-                // Zoom text
-                if (textScale < 1) textScale += 0.05;
+                if (textScale < 1.2) textScale += 0.04;
             }
-            // 3. Next Level
-            if (winTimer > 180) { // 3 seconds
+            if (winTimer > 200) {
                 levelIndex++;
                 loadLevel(levelIndex);
             }
             updateParticles();
             return;
         }
-        // == PLAYER MOVEMENT ==
+        // == MOVEMENT ==
         player.vx = 0;
-        if (keys.ArrowLeft) {
-            player.vx = -SPEED;
-            player.facingRight = false;
-        }
-        if (keys.ArrowRight) {
-            player.vx = SPEED;
-            player.facingRight = true;
-        }
+        if (keys.ArrowLeft) { player.vx = -SPEED; player.facingRight = false; }
+        if (keys.ArrowRight) { player.vx = SPEED; player.facingRight = true; }
         if (keys.ArrowDown) player.vy += FAST_FALL;
         if (keys.Space && player.onGround) {
             player.vy = -JUMP;
             player.onGround = false;
         }
         player.vy += GRAVITY;
-        // X Movement & Collision
+        // X Physics
         player.x += player.vx;
         blocks.forEach(b => {
             if (hit(player, b)) {
@@ -210,98 +225,117 @@ document.addEventListener("DOMContentLoaded", () => {
                 player.vx = 0;
             }
         });
-        // Bounds X
+        // Bounds
         if (player.x < 0) player.x = 0;
         if (player.x + player.w > canvas.width) player.x = canvas.width - player.w;
-        // Y Movement & Collision
+        // Y Physics
         player.y += player.vy;
         player.onGround = false;
         blocks.forEach(b => {
             if (hit(player, b)) {
-                if (player.vy > 0) { // Falling
+                if (player.vy > 0) {
                     player.y = b.y - player.h;
                     player.vy = 0;
                     player.onGround = true;
-                } else if (player.vy < 0) { // Jumping up
+                } else if (player.vy < 0) {
                     player.y = b.y + b.h;
                     player.vy = 0;
                 }
             }
         });
         // == DEATH ==
-        if (player.y > FALL_DEATH_Y) {
-            gameOver = true;
-            deathSound.play().catch(() => { });
-        }
+        if (player.y > FALL_DEATH_Y) die();
+        // Spike Death (Forgiving)
         spikes.forEach(s => {
-            if (hit(player, s)) {
-                gameOver = true;
-                deathSound.play().catch(() => { });
-            }
+            if (hitSpike(player, s)) die();
         });
-        // == VICTORY CHECK ==
-        // Must touch castle center
-        const px = player.x + player.w / 2;
-        const py = player.y + player.h / 2;
-        if (px > castle.x + 20 && px < castle.x + castle.w - 20 &&
-            py > castle.y + 20 && py < castle.y + castle.h) {
+        // Win Trigger
+        const pcx = player.x + player.w / 2;
+        const pcy = player.y + player.h / 2;
+        if (pcx > castle.x && pcx < castle.x + castle.w &&
+            pcy > castle.y + 20 && pcy < castle.y + castle.h) {
             levelWin = true;
-            player.vx = 0;
-            player.vy = 0;
-            // Center player in castle door
+            player.vx = 0; player.vy = 0;
             player.x = castle.x + castle.w / 2 - player.w / 2;
             player.y = castle.y + castle.h - player.h - 5;
         }
         updateParticles();
     }
+    function die() {
+        gameOver = true;
+        deathSound.play().catch(() => { });
+    }
     function updateParticles() {
-        particles.forEach(p => {
-            p.x += p.vx;
-            p.y += p.vy;
-            p.life--;
+        [particles, castleParticles].forEach(list => {
+            list.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+            });
+            // Can't assign back to list variable inside forEach easily, need to filter outside or use a loop
         });
         particles = particles.filter(p => p.life > 0);
+        castleParticles = castleParticles.filter(p => p.life > 0);
     }
     /* ================= DRAW ================= */
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        // Draw Scrolling BG (Two copies stitched)
+        // BG
+        const tint = Math.abs(Math.sin(colorTick)) * 0.2;
+        ctx.save();
         ctx.drawImage(bg, bgX, 0, canvas.width, canvas.height);
         ctx.drawImage(bg, bgX + canvas.width, 0, canvas.width, canvas.height);
-        // Blocks
+        ctx.fillStyle = `rgba(50, 0, 80, ${tint})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+        // World
         blocks.forEach(b => ctx.drawImage(blockImg, b.x, b.y, b.w, b.h));
         spikes.forEach(s => ctx.drawImage(spikeImg, s.x, s.y, s.w, s.h));
-        // Castle (Glow)
+        // Castle
         ctx.save();
-        ctx.shadowColor = "gold";
-        ctx.shadowBlur = 30;
+        ctx.shadowColor = `hsl(${colorTick * 50}, 100%, 70%)`;
+        ctx.shadowBlur = 40;
         ctx.drawImage(castleImg, castle.x, castle.y, castle.w, castle.h);
         ctx.restore();
+        // Castle Sparkles
+        castleParticles.forEach(p => {
+            ctx.fillStyle = p.color;
+            ctx.fillRect(p.x, p.y, 2, 2);
+        });
         // Player
+        // Note: Logic x/y/w/h (64) is smaller than Visual (80)
+        // We centre the visual sprite on the logic hitbox
+        const visX = player.x - (player.visualW - player.w) / 2;
+        const visY = player.y - (player.visualH - player.h); // Aligned bottom
         ctx.save();
         if (!player.facingRight) {
-            ctx.translate(player.x + player.w, player.y);
+            ctx.translate(visX + player.visualW, visY);
             ctx.scale(-1, 1);
-            ctx.drawImage(wizard, 0, 0, player.w, player.h);
+            ctx.drawImage(wizard, 0, 0, player.visualW, player.visualH);
         } else {
-            ctx.drawImage(wizard, player.x, player.y, player.w, player.h);
+            ctx.drawImage(wizard, visX, visY, player.visualW, player.visualH);
         }
-        // Wand Drawing (Only during win)
+        // Wand
         if (levelWin) {
             ctx.save();
-            // Attach wand to hand position
-            if (player.facingRight) ctx.translate(player.x + player.w - 15, player.y + 45);
-            else ctx.translate(15, 45); // Flipped coords
+            const handX = player.facingRight ? visX + player.visualW - 15 : 15;
+            const handY = visY + 45;
+            if (player.facingRight) ctx.translate(handX, handY);
+            else ctx.translate(handX, handY); // already inside flip if I did it right? No, wait.
+            // Wait, we are NOT inside the player flip context here.
+            // Correction: Re-calculate for world space draw
+            const wX = player.facingRight ? visX + player.visualW - 20 : visX + 20;
+            const wY = visY + 45;
+            ctx.translate(wX, wY);
+            if (!player.facingRight) ctx.scale(-1, 1); // Flip wand too
             ctx.rotate(wandAngle);
-            // Wand stick
             ctx.fillStyle = "#8d5524";
-            ctx.fillRect(0, -4, 35, 8);
-            // Wand tip
-            ctx.fillStyle = "#fff";
-            ctx.fillRect(30, -5, 10, 10);
+            ctx.fillRect(0, -4, 40, 8);
+            ctx.fillStyle = "#00FFFF";
+            ctx.fillRect(35, -5, 12, 12);
             ctx.restore();
         }
-        ctx.restore(); // End player flip
+        ctx.restore();
         // Particles
         particles.forEach(p => {
             ctx.fillStyle = p.color;
@@ -312,27 +346,30 @@ document.addEventListener("DOMContentLoaded", () => {
         // UI
         ctx.fillStyle = "white";
         ctx.font = "bold 24px Arial";
+        ctx.shadowColor = "black";
+        ctx.shadowBlur = 4;
         ctx.fillText(`Level ${levelIndex + 1}`, 20, 40);
         if (gameOver) {
-            ctx.fillStyle = "rgba(0,0,0,0.7)";
+            ctx.fillStyle = "rgba(0,0,0,0.8)";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = "#ff4444";
             ctx.textAlign = "center";
             ctx.font = "bold 60px Arial";
             ctx.fillText("YOU DIED", canvas.width / 2, canvas.height / 2);
-            ctx.font = "24px Arial";
             ctx.fillStyle = "white";
-            ctx.fillText("Press R to Retry", canvas.width / 2, canvas.height / 2 + 50);
+            ctx.font = "24px Arial";
+            ctx.fillText("Press R to Restart", canvas.width / 2, canvas.height / 2 + 60);
         }
         if (levelWin && textScale > 0) {
             ctx.save();
             ctx.translate(canvas.width / 2, canvas.height / 2);
             ctx.scale(textScale, textScale);
+            ctx.rotate(Math.sin(colorTick * 2) * 0.1);
             ctx.fillStyle = "#ffd700";
-            ctx.shadowColor = "black";
-            ctx.shadowBlur = 10;
+            ctx.shadowColor = "cyan";
+            ctx.shadowBlur = 20;
             ctx.textAlign = "center";
-            ctx.font = "bold 70px Arial";
+            ctx.font = "bold 80px Arial";
             ctx.fillText("LEVEL COMPLETED", 0, 0);
             ctx.restore();
         }
@@ -341,11 +378,8 @@ document.addEventListener("DOMContentLoaded", () => {
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = "gold";
             ctx.textAlign = "center";
-            ctx.font = "bold 60px Arial";
+            ctx.font = "bold 70px Arial";
             ctx.fillText("VICTORY!", canvas.width / 2, canvas.height / 2);
-            ctx.font = "30px Arial";
-            ctx.fillStyle = "white";
-            ctx.fillText("You are a Master Wizard!", canvas.width / 2, canvas.height / 2 + 60);
         }
     }
     function loop() {
@@ -356,7 +390,6 @@ document.addEventListener("DOMContentLoaded", () => {
     loadLevel(0);
     loop();
 });
-
 
 
 
