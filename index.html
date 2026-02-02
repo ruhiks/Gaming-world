@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <title>Antigravity Wizard</title>
@@ -8,28 +9,36 @@
         body {
             margin: 0;
             padding: 0;
-            background: #1a1a2e; /* Dark violet background */
+            /* Deep mystical purple/black background to match the game */
+            background: #0f0f1a;
             overflow: hidden;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             color: white;
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
+
         canvas {
             display: block;
-            box-shadow: 0 0 30px rgba(138, 43, 226, 0.5); /* Violet glow */
+            /* Magical violet glow around the game window */
+            box-shadow: 0 0 40px rgba(138, 43, 226, 0.6);
             background: #000;
             border-radius: 4px;
         }
     </style>
 </head>
+
 <body>
-<canvas id="gameCanvas" width="960" height="540"></canvas>
-<script src="game.js"></script>
+
+    <canvas id="gameCanvas" width="960" height="540"></canvas>
+    <script src="game.js"></script>
+
 </body>
+
 </html>
+
 
 
 
