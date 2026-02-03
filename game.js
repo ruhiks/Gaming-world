@@ -1,11 +1,8 @@
 "use strict";
-
 document.addEventListener("DOMContentLoaded", () => {
-
     /* ================= CANVAS ================= */
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
-
     /* ================= CONSTANTS ================= */
     const GRAVITY = 0.9;
     const SPEED = 5;
@@ -13,7 +10,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const FAST_FALL = 2.0;
     const FALL_DEATH_Y = canvas.height + 80;
     const CLOUD_SPEED = 1.0;
-
     /* ================= STATE ================= */
     let levelIndex = 0;
     let gameOver = false;
@@ -26,7 +22,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // Background vars
     let bgX = 0;
     let colorTick = 0;
-
     /* ================= ASSETS ================= */
     const load = src => { const i = new Image(); i.src = src; return i; };
     const bg = load("assets/bg.png");
@@ -34,13 +29,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const blockImg = load("assets/block.png");
     const spikeImg = load("assets/spike.png");
     const castleImg = load("assets/castle.png");
-
     /* ================= AUDIO ================= */
     const bgm = new Audio("assets/music.mp3");
     bgm.loop = true;
     bgm.volume = 0.4;
     const deathSound = new Audio("assets/death.mp3");
-
     let audioStarted = false;
     const startAudio = () => {
         if (!audioStarted) {
@@ -50,7 +43,6 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     window.addEventListener("keydown", startAudio);
     window.addEventListener("click", startAudio);
-
     /* ================= PLAYER ================= */
     const player = {
         x: 0, y: 0,
@@ -60,11 +52,9 @@ document.addEventListener("DOMContentLoaded", () => {
         onGround: false,
         facingRight: true
     };
-
     /* ================= PARTICLES ================= */
     let particles = [];
     let castleParticles = [];
-
     function spawnSparkles(list, x, y, count, colors) {
         for (let i = 0; i < count; i++) {
             list.push({
@@ -77,7 +67,6 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         }
     }
-
     /* ================= LEVELS ================= */
     // Note: Blocks are wider now to give "space to stand"
     const levels = [
@@ -130,9 +119,7 @@ document.addEventListener("DOMContentLoaded", () => {
             castle: { x: 760, y: 20, w: 140, h: 180 }
         }
     ];
-
     let blocks = [], spikes = [], castle = {};
-
     function loadLevel(i) {
         if (i >= levels.length) {
             finalWin = true;
@@ -142,13 +129,11 @@ document.addEventListener("DOMContentLoaded", () => {
         blocks = l.blocks;
         spikes = l.spikes;
         castle = l.castle;
-
         player.x = l.start.x;
         player.y = l.start.y;
         player.vx = 0;
         player.vy = 0;
         player.onGround = false;
-
         gameOver = false;
         levelWin = false;
         winTimer = 0;
@@ -157,9 +142,7 @@ document.addEventListener("DOMContentLoaded", () => {
         particles = [];
         castleParticles = [];
     }
-
     /* ================= COLLISIONS ================= */
-
     // Strict AABB
     function hit(a, b) {
         return a.x < b.x + b.w &&
@@ -167,7 +150,6 @@ document.addEventListener("DOMContentLoaded", () => {
             a.y < b.y + b.h &&
             a.y + a.h > b.y;
     }
-
     // Forgiving hitbox for spikes (Must overlap significantly)
     // Padding reduces the "kill zone" size inside the sprite
     function hitSpike(p, s) {
@@ -177,9 +159,7 @@ document.addEventListener("DOMContentLoaded", () => {
             p.y + padding < s.y + s.h - 5 && // Less padding on bottom (ground)
             p.y + p.h - padding > s.y + 10;
     }
-
     /* ================= GAME LOOP ================= */
-
     // Input
     const keys = {};
     window.addEventListener("keydown", e => {
@@ -187,16 +167,12 @@ document.addEventListener("DOMContentLoaded", () => {
         if (gameOver && e.code === "KeyR") loadLevel(levelIndex);
     });
     window.addEventListener("keyup", e => keys[e.code] = false);
-
-
     function update() {
         // Magical Background
         bgX -= CLOUD_SPEED;
         if (bgX <= -canvas.width) bgX = 0;
         colorTick += 0.02;
-
         if (gameOver || finalWin) return;
-
         // == CASTLE SPARKLES (Always) ==
         if (Math.random() < 0.3) {
             spawnSparkles(castleParticles,
@@ -204,21 +180,17 @@ document.addEventListener("DOMContentLoaded", () => {
                 castle.y + Math.random() * castle.h,
                 1, ["#FFD700", "#FFF"]);
         }
-
         // == WIN ANIMATION ==
         if (levelWin) {
             winTimer++;
-
             // Raise Wand
             if (winTimer < 45) {
                 wandAngle = (winTimer / 45) * (-Math.PI / 2.5);
             }
-
             // Sparkles
             if (winTimer >= 45) {
                 const tipX = player.facingRight ? player.x + player.w + 12 : player.x - 12;
                 const tipY = player.y + 12;
-
                 if (winTimer === 45) {
                     spawnSparkles(particles, tipX, tipY, 40, ["#FFD700", "#00FFFF", "#FFFFFF"]);
                 }
@@ -227,29 +199,23 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
                 if (textScale < 1.2) textScale += 0.04;
             }
-
             if (winTimer > 200) {
                 levelIndex++;
                 loadLevel(levelIndex);
             }
-
             updateParticles();
             return;
         }
-
         // == MOVEMENT ==
         player.vx = 0;
         if (keys.ArrowLeft) { player.vx = -SPEED; player.facingRight = false; }
         if (keys.ArrowRight) { player.vx = SPEED; player.facingRight = true; }
         if (keys.ArrowDown) player.vy += FAST_FALL;
-
         if (keys.Space && player.onGround) {
             player.vy = -JUMP;
             player.onGround = false;
         }
-
         player.vy += GRAVITY;
-
         // X Physics
         player.x += player.vx;
         blocks.forEach(b => {
@@ -259,11 +225,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 player.vx = 0;
             }
         });
-
         // Bounds
         if (player.x < 0) player.x = 0;
         if (player.x + player.w > canvas.width) player.x = canvas.width - player.w;
-
         // Y Physics
         player.y += player.vy;
         player.onGround = false;
@@ -279,15 +243,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             }
         });
-
         // == DEATH ==
         if (player.y > FALL_DEATH_Y) die();
-
         // Spike Death (Forgiving)
         spikes.forEach(s => {
             if (hitSpike(player, s)) die();
         });
-
         // Win Trigger
         const pcx = player.x + player.w / 2;
         const pcy = player.y + player.h / 2;
@@ -298,15 +259,12 @@ document.addEventListener("DOMContentLoaded", () => {
             player.x = castle.x + castle.w / 2 - player.w / 2;
             player.y = castle.y + castle.h - player.h - 5;
         }
-
         updateParticles();
     }
-
     function die() {
         gameOver = true;
         deathSound.play().catch(() => { });
     }
-
     function updateParticles() {
         [particles, castleParticles].forEach(list => {
             list.forEach(p => {
@@ -319,11 +277,9 @@ document.addEventListener("DOMContentLoaded", () => {
         particles = particles.filter(p => p.life > 0);
         castleParticles = castleParticles.filter(p => p.life > 0);
     }
-
     /* ================= DRAW ================= */
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-
         // BG
         const tint = Math.abs(Math.sin(colorTick)) * 0.2;
         ctx.save();
@@ -332,30 +288,25 @@ document.addEventListener("DOMContentLoaded", () => {
         ctx.fillStyle = `rgba(50, 0, 80, ${tint})`;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.restore();
-
         // World
         blocks.forEach(b => ctx.drawImage(blockImg, b.x, b.y, b.w, b.h));
         spikes.forEach(s => ctx.drawImage(spikeImg, s.x, s.y, s.w, s.h));
-
         // Castle
         ctx.save();
         ctx.shadowColor = `hsl(${colorTick * 50}, 100%, 70%)`;
         ctx.shadowBlur = 40;
         ctx.drawImage(castleImg, castle.x, castle.y, castle.w, castle.h);
         ctx.restore();
-
         // Castle Sparkles
         castleParticles.forEach(p => {
             ctx.fillStyle = p.color;
             ctx.fillRect(p.x, p.y, 2, 2);
         });
-
         // Player
         // Note: Logic x/y/w/h (64) is smaller than Visual (80)
         // We centre the visual sprite on the logic hitbox
         const visX = player.x - (player.visualW - player.w) / 2;
         const visY = player.y - (player.visualH - player.h); // Aligned bottom
-
         ctx.save();
         if (!player.facingRight) {
             ctx.translate(visX + player.visualW, visY);
@@ -364,24 +315,19 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
             ctx.drawImage(wizard, visX, visY, player.visualW, player.visualH);
         }
-
         // Wand
         if (levelWin) {
             ctx.save();
             const handX = player.facingRight ? visX + player.visualW - 15 : 15;
             const handY = visY + 45;
-
             if (player.facingRight) ctx.translate(handX, handY);
             else ctx.translate(handX, handY); // already inside flip if I did it right? No, wait.
             // Wait, we are NOT inside the player flip context here.
-
             // Correction: Re-calculate for world space draw
             const wX = player.facingRight ? visX + player.visualW - 20 : visX + 20;
             const wY = visY + 45;
-
             ctx.translate(wX, wY);
             if (!player.facingRight) ctx.scale(-1, 1); // Flip wand too
-
             ctx.rotate(wandAngle);
             ctx.fillStyle = "#8d5524";
             ctx.fillRect(0, -4, 40, 8);
@@ -390,7 +336,6 @@ document.addEventListener("DOMContentLoaded", () => {
             ctx.restore();
         }
         ctx.restore();
-
         // Particles
         particles.forEach(p => {
             ctx.fillStyle = p.color;
@@ -398,14 +343,12 @@ document.addEventListener("DOMContentLoaded", () => {
             ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
             ctx.fill();
         });
-
         // UI
         ctx.fillStyle = "white";
         ctx.font = "bold 24px Arial";
         ctx.shadowColor = "black";
         ctx.shadowBlur = 4;
         ctx.fillText(`Level ${levelIndex + 1}`, 20, 40);
-
         if (gameOver) {
             ctx.fillStyle = "rgba(0,0,0,0.8)";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -417,13 +360,11 @@ document.addEventListener("DOMContentLoaded", () => {
             ctx.font = "24px Arial";
             ctx.fillText("Press R to Restart", canvas.width / 2, canvas.height / 2 + 60);
         }
-
         if (levelWin && textScale > 0) {
             ctx.save();
             ctx.translate(canvas.width / 2, canvas.height / 2);
             ctx.scale(textScale, textScale);
             ctx.rotate(Math.sin(colorTick * 2) * 0.1);
-
             ctx.fillStyle = "#ffd700";
             ctx.shadowColor = "cyan";
             ctx.shadowBlur = 20;
@@ -432,7 +373,6 @@ document.addEventListener("DOMContentLoaded", () => {
             ctx.fillText("LEVEL COMPLETED", 0, 0);
             ctx.restore();
         }
-
         if (finalWin) {
             ctx.fillStyle = "black";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -442,18 +382,14 @@ document.addEventListener("DOMContentLoaded", () => {
             ctx.fillText("VICTORY!", canvas.width / 2, canvas.height / 2);
         }
     }
-
     function loop() {
         update();
         draw();
         requestAnimationFrame(loop);
     }
-
     loadLevel(0);
     loop();
 });
-
-
 
 
 
