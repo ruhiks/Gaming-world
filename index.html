@@ -8,22 +8,23 @@
         body {
             margin: 0;
             padding: 0;
-            /* Deep mystical purple/black background to match the game */
-            background: #0f0f1a;
+            /* Enhanced Gradient */
+            background: radial-gradient(circle at center, #1b0c33 0%, #000000 100%);
             overflow: hidden;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             color: white;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', sans-serif;
         }
         canvas {
             display: block;
-            /* Magical violet glow around the game window */
-            box-shadow: 0 0 40px rgba(138, 43, 226, 0.6);
+            /* Stronger magical glow */
+            box-shadow: 0 0 60px rgba(138, 43, 226, 0.4), 0 0 30px rgba(0, 255, 255, 0.2);
             background: #000;
-            border-radius: 4px;
+            border-radius: 8px;
+            border: 2px solid #332244;
         }
     </style>
 </head>
@@ -32,6 +33,7 @@
     <script src="game.js"></script>
 </body>
 </html>
+
 
 
 
