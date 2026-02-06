@@ -30,7 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const blockImg = load("assets/block.png");
     const spikeImg = load("assets/spike.png");
     const castleImg = load("assets/castle.png");
-    // Dragon is drawn procedurally!
+    const dragonImg = load("assets/dragon.png"); // NEW: Load dragon image
     /* ================= AUDIO ================= */
     const bgm = new Audio("assets/music.mp3");
     bgm.loop = true;
@@ -179,9 +179,9 @@ document.addEventListener("DOMContentLoaded", () => {
             // 1. Dragon Wakes and Breathes Fire (0 -> 100)
             if (winTimer > 10 && winTimer < 100) {
                 // Fire source: Dragon mouth
-                // Dragon size ~ 80x80. Mouth is roughly at offset
-                const dx = dragon.x + (dragon.dir > 0 ? 60 : 20);
-                const dy = dragon.y + 30;
+                // Adjusted for image: Mouth is roughly at offset
+                const dx = dragon.x + (dragon.dir > 0 ? 80 : 20); // Adjusted mouth pos
+                const dy = dragon.y + 40;
                 const fvx = (dragon.dir > 0 ? 1 : -1) * (Math.random() * 3 + 2);
                 spawnParticle(fireParticles, dx, dy, {
                     vx: fvx,
@@ -274,51 +274,7 @@ document.addEventListener("DOMContentLoaded", () => {
         castleParticles = castleParticles.filter(p => p.life > 0);
         fireParticles = fireParticles.filter(p => p.life > 0);
     }
-    function drawDragon(dx, dy, dir) {
-        ctx.save();
-        ctx.translate(dx, dy);
-        if (dir === -1) { ctx.translate(80, 0); ctx.scale(-1, 1); }
-        // Draw Cute Green Dragon
-        ctx.fillStyle = "#32CD32"; // Lime Green
-        // Body
-        ctx.beginPath();
-        ctx.arc(40, 50, 25, 0, Math.PI * 2);
-        ctx.fill();
-        // Tail
-        ctx.beginPath();
-        ctx.moveTo(20, 60);
-        ctx.lineTo(-10, 80);
-        ctx.lineTo(20, 70);
-        ctx.fill();
-        // Head
-        ctx.beginPath();
-        ctx.arc(40, 25, 18, 0, Math.PI * 2);
-        ctx.fill();
-        // Snout
-        ctx.fillRect(45, 20, 20, 15);
-        // Eye
-        ctx.fillStyle = "white";
-        ctx.beginPath(); ctx.arc(45, 20, 5, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "black";
-        ctx.beginPath(); ctx.arc(47, 20, 2, 0, Math.PI * 2); ctx.fill();
-        // Wings
-        ctx.fillStyle = "#228B22"; // Forest Green
-        ctx.beginPath();
-        ctx.moveTo(30, 40);
-        ctx.lineTo(5, 10);
-        ctx.lineTo(20, 40);
-        ctx.fill();
-        // Spikes on back
-        ctx.fillStyle = "gold";
-        for (let i = 0; i < 3; i++) {
-            ctx.beginPath();
-            ctx.moveTo(15 + i * 8, 20 + i * 10);
-            ctx.lineTo(10 + i * 8, 10 + i * 10);
-            ctx.lineTo(20 + i * 8, 25 + i * 10);
-            ctx.fill();
-        }
-        ctx.restore();
-    }
+    // Removed drawDragon procedural function
     /* ================= DRAW ================= */
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -356,7 +312,22 @@ document.addEventListener("DOMContentLoaded", () => {
         ctx.restore();
         castleParticles.forEach(p => { ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 2, 2); });
         // DRAGON
-        if (dragon.x) drawDragon(dragon.x, dragon.y, dragon.dir);
+        if (dragon.x) {
+            ctx.save();
+            ctx.translate(dragon.x, dragon.y);
+            const dW = 120; // Dragon Size Width
+            const dH = 100; // Dragon Size Height
+            // Align center bottom of image to point?
+            // Procedural was roughly top-left at x,y?
+            // Procedural: x,y is translation origin.
+            // Let's center it a bit better.
+            if (dragon.dir === -1) {
+                ctx.translate(dW, 0);
+                ctx.scale(-1, 1);
+            }
+            ctx.drawImage(dragonImg, 0, 0, dW, dH);
+            ctx.restore();
+        }
         // FIRE
         fireParticles.forEach(p => {
             ctx.fillStyle = p.color;
@@ -407,9 +378,6 @@ document.addEventListener("DOMContentLoaded", () => {
             ctx.fillStyle = "gold"; ctx.textAlign = "center"; ctx.font = "bold 70px Arial"; ctx.fillText("VICTORY!", canvas.width / 2, canvas.height / 2);
         }
     }
-    function loop() { update(); draw(); requestAnimationFrame(loop); }
-    loadLevel(0); loop();
-});
 
 
 
