@@ -26,7 +26,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const blockImg = load("assets/block.png");
     const spikeImg = load("assets/spike.png");
     const castleImg = load("assets/castle.png");
-    // Dragon is procedurally drawn
+    // User's dragon image - will try to use this first
+    const dragonImg = load("assets/dragon.png");
     /* ================= AUDIO ================= */
     const bgm = new Audio("assets/music.mp3");
     bgm.loop = true;
@@ -48,7 +49,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 vx: (Math.random() - 0.5) * speed,
                 vy: (Math.random() - 0.5) * speed,
                 life: life + Math.random() * 20,
-                color: color,
+                color: color, // Specific color or fallback
                 size: Math.random() * size + 1
             });
         }
@@ -79,6 +80,7 @@ document.addEventListener("DOMContentLoaded", () => {
         update() {
             this.x += this.vx;
             this.life--;
+            // Trail
             if (frameCount % 4 === 0) spawnParticles(this.x + this.w / 2, this.y + this.h / 2, "orange", 2, 2);
         }
         draw() {
@@ -105,7 +107,7 @@ document.addEventListener("DOMContentLoaded", () => {
             castle: { x: 820, y: 170, w: 130, h: 160 },
             dragon: { x: 650, y: 220, active: true }
         },
-        {
+        { // Level 2
             start: { x: 40, y: 420 },
             blocks: [
                 { x: 0, y: 500, w: 200, h: 40, type: 'static' },
@@ -120,7 +122,7 @@ document.addEventListener("DOMContentLoaded", () => {
             castle: { x: 820, y: 100, w: 130, h: 160 },
             dragon: { x: 700, y: 160, active: true }
         },
-        {
+        { // Level 3
             start: { x: 20, y: 450 },
             blocks: [
                 { x: 0, y: 520, w: 150, h: 30, type: 'static' },
@@ -174,8 +176,8 @@ document.addEventListener("DOMContentLoaded", () => {
         a.y < b.y + b.h &&
         a.y + a.h > b.y
     );
-    /* ================= DRAGON DRAWING ================= */
-    function drawDragon(ctx, x, y, w, h) {
+    /* ================= DRAW DRAGON (PROCEDURAL FALLBACK) ================= */
+    function drawProceduralDragon(ctx, x, y, w, h) {
         const time = frameCount * 0.05;
         const hoverY = Math.sin(time) * 10;
         ctx.save();
@@ -246,7 +248,7 @@ document.addEventListener("DOMContentLoaded", () => {
         frameCount++;
         bgX -= CLOUD_SPEED;
         if (bgX <= -canvas.width) bgX = 0;
-        // Magical background particles (stars)
+        // Magical background particles
         if (frameCount % 15 === 0) {
             spawnParticles(Math.random() * canvas.width, Math.random() * canvas.height, "white", 1, 0.5, 100, 2);
         }
@@ -256,6 +258,10 @@ document.addEventListener("DOMContentLoaded", () => {
             winTimer++;
             magicSpark(player.x + 30, player.y + 30);
             spawnParticles(castle.x + 65, castle.y + 80, "cyan", 1, 3);
+            // Add sparkles around the center for text "LEVEL COMPLETED"
+            if (winTimer > 30 && winTimer < 150 && frameCount % 5 === 0) {
+                spawnParticles(canvas.width / 2 + (Math.random() - 0.5) * 300, canvas.height / 2 + (Math.random() - 0.5) * 50, "gold", 2, 2);
+            }
             if (dragonObj.active) {
                 dragonObj.yOffset = Math.sin(frameCount * 0.5) * 5;
                 if (frameCount % 5 === 0) {
@@ -309,7 +315,9 @@ document.addEventListener("DOMContentLoaded", () => {
             if (dragonObj.attackTimer > 120) {
                 const dir = (player.x < dragonObj.x) ? -1 : 1;
                 dragonObj.dir = dir;
-                fireballs.push(new Fireball(dragonObj.x + (dir === 1 ? dragonObj.w : 0), dragonObj.y + 40, dir));
+                // Adjust fireball start pos based on dragon size/image
+                const startX = dragonObj.x + (dir === 1 ? dragonObj.w : 0);
+                fireballs.push(new Fireball(startX, dragonObj.y + 40, dir));
                 dragonObj.attackTimer = 0;
             }
             if (hit(player, dragonObj)) {
@@ -348,10 +356,10 @@ document.addEventListener("DOMContentLoaded", () => {
     /* ================= DRAW ================= */
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        /* Background */
+        /* Background - Deep Violet Magic Theme */
         const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-        gradient.addColorStop(0, "#2c003e");
-        gradient.addColorStop(1, "#4b0082");
+        gradient.addColorStop(0, "#2c003e"); // Dark Violet
+        gradient.addColorStop(1, "#4b0082"); // Indigo
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         if (bg.complete) {
@@ -370,7 +378,17 @@ document.addEventListener("DOMContentLoaded", () => {
         ctx.shadowBlur = 0;
         /* Dragon */
         if (dragonObj.active) {
-            drawDragon(ctx, dragonObj.x, dragonObj.y, dragonObj.w, dragonObj.h);
+            if (dragonImg.complete && dragonImg.naturalWidth > 0) {
+                // Use Image if loaded
+                ctx.save();
+                // Optional: Flip if needed, assuming sprite faces left
+                // if(dragonObj.dir === 1) { ctx.scale(-1, 1); ... }
+                ctx.drawImage(dragonImg, dragonObj.x, dragonObj.y, dragonObj.w, dragonObj.h);
+                ctx.restore();
+            } else {
+                // Use Procedural fallback
+                drawProceduralDragon(ctx, dragonObj.x, dragonObj.y, dragonObj.w, dragonObj.h);
+            }
         }
         /* Fireballs */
         fireballs.forEach(fb => fb.draw());
@@ -428,7 +446,6 @@ document.addEventListener("DOMContentLoaded", () => {
     loadLevel(0);
     loop();
 });
-
 
 
 
