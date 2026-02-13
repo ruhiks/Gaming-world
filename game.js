@@ -17,7 +17,6 @@ document.addEventListener("DOMContentLoaded", () => {
     let finalWin = false;
     let winTimer = 0;
     let bgX = 0;
-    let textScale = 0;
     let frameCount = 0;
     /* ================= ASSETS ================= */
     const load = s => { const i = new Image(); i.src = s; return i; };
@@ -26,7 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const blockImg = load("assets/block.png");
     const spikeImg = load("assets/spike.png");
     const castleImg = load("assets/castle.png");
-    // User's dragon image - will try to use this first
+    // User's dragon image
     const dragonImg = load("assets/dragon.png");
     /* ================= AUDIO ================= */
     const bgm = new Audio("assets/music.mp3");
@@ -42,22 +41,45 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     /* ================= PARTICLES ================= */
     let particles = [];
-    function spawnParticles(x, y, color, count = 10, speed = 2, life = 40, size = 3) {
+    function spawnParticles(x, y, color, count = 10, speed = 2, life = 40, size = 3, target = null) {
         for (let i = 0; i < count; i++) {
             particles.push({
                 x, y,
                 vx: (Math.random() - 0.5) * speed,
                 vy: (Math.random() - 0.5) * speed,
                 life: life + Math.random() * 20,
-                color: color, // Specific color or fallback
-                size: Math.random() * size + 1
+                color: color,
+                size: Math.random() * size + 1,
+                target: target // Optional target position for text formation
             });
         }
     }
     function spark(x, y) { spawnParticles(x, y, "gold", 5, 4); }
     function fireSpark(x, y) { spawnParticles(x, y, "orange", 3, 3, 20); }
     function magicSpark(x, y) { spawnParticles(x, y, "violet", 2, 1, 60); }
-    function dragonBreath(x, y) { spawnParticles(x, y, "#ff4500", 5, 2, 30, 4); }
+    function dragonBreath(x, y, target = null) { spawnParticles(x, y, "#ff4500", 5, 4, 100, 4, target); }
+    /* ================= FIRE TEXT LOGIC ================= */
+    // Simple pixel map for "LEVEL COMPLETED" (very low res for particles)
+    const textPoints = [];
+    function generateTextPoints(text) {
+        if (textPoints.length > 0) return;
+        const tempCanvas = document.createElement("canvas");
+        const tCtx = tempCanvas.getContext("2d");
+        tempCanvas.width = 400;
+        tempCanvas.height = 100;
+        tCtx.font = "bold 40px 'Verdana', sans-serif"; // Using Verdana for blocky look
+        tCtx.fillStyle = "white";
+        tCtx.fillText(text, 10, 50);
+        const data = tCtx.getImageData(0, 0, 400, 100).data;
+        for (let y = 0; y < 100; y += 4) { // Sample every 4th pixel
+            for (let x = 0; x < 400; x += 4) {
+                if (data[(y * 400 + x) * 4 + 3] > 128) {
+                    // Centered coordinates
+                    textPoints.push({ x: x + canvas.width / 2 - 200, y: y + canvas.height / 2 - 50 });
+                }
+            }
+        }
+    }
     /* ================= OBJECTS ================= */
     let blocks = [], spikes = [], castle = {}, fireballs = [];
     /* Dragon Object */
@@ -66,7 +88,7 @@ document.addEventListener("DOMContentLoaded", () => {
         dir: -1,
         attackTimer: 0,
         active: false,
-        yOffset: 0
+        textTargetIndex: 0 // Index for particle text target
     };
     class Fireball {
         constructor(x, y, dir) {
@@ -80,7 +102,6 @@ document.addEventListener("DOMContentLoaded", () => {
         update() {
             this.x += this.vx;
             this.life--;
-            // Trail
             if (frameCount % 4 === 0) spawnParticles(this.x + this.w / 2, this.y + this.h / 2, "orange", 2, 2);
         }
         draw() {
@@ -100,7 +121,7 @@ document.addEventListener("DOMContentLoaded", () => {
             start: { x: 40, y: 420 },
             blocks: [
                 { x: 0, y: 500, w: 960, h: 40, type: 'static' },
-                { x: 300, y: 430, w: 160, h: 30, type: 'static' },
+                { x: 300, y: 430, w: 160, h: 30, type: 'static' }, // Easy way
                 { x: 600, y: 360, w: 160, h: 30, type: 'moving', vx: 2, minX: 550, maxX: 750 }
             ],
             spikes: [{ x: 420, y: 470, w: 40, h: 30 }],
@@ -112,7 +133,7 @@ document.addEventListener("DOMContentLoaded", () => {
             blocks: [
                 { x: 0, y: 500, w: 200, h: 40, type: 'static' },
                 { x: 260, y: 430, w: 120, h: 30, type: 'moving', vy: 2, minY: 300, maxY: 430 },
-                { x: 450, y: 350, w: 120, h: 30, type: 'static' },
+                { x: 450, y: 350, w: 120, h: 30, type: 'static' }, // Safe spot
                 { x: 650, y: 280, w: 120, h: 30, type: 'static' }
             ],
             spikes: [
@@ -149,10 +170,13 @@ document.addEventListener("DOMContentLoaded", () => {
             dragonObj.y = l.dragon.y;
             dragonObj.active = l.dragon.active;
             dragonObj.attackTimer = 0;
+            dragonObj.textTargetIndex = 0;
         } else {
             dragonObj.active = false;
         }
         fireballs = [];
+        textPoints.length = 0; // Clear text points
+        generateTextPoints("LEVEL COMPLETED");
         player.x = l.start.x;
         player.y = l.start.y;
         player.vx = 0;
@@ -160,7 +184,6 @@ document.addEventListener("DOMContentLoaded", () => {
         gameOver = false;
         levelWin = false;
         winTimer = 0;
-        textScale = 0;
     }
     /* ================= INPUT ================= */
     const keys = {};
@@ -182,25 +205,25 @@ document.addEventListener("DOMContentLoaded", () => {
         const hoverY = Math.sin(time) * 10;
         ctx.save();
         ctx.translate(x + w / 2, y + h / 2 + hoverY);
-        // Dragon Body Color: Deep Violet
-        ctx.fillStyle = "#4B0082"; // Indigo/Violet
-        ctx.strokeStyle = "#800080"; // Bright Purple Outline
+        // Dragon Color: Deep Violet
+        ctx.fillStyle = "#4B0082";
+        ctx.strokeStyle = "#800080";
         ctx.lineWidth = 3;
         ctx.scale(dragonObj.dir, 1);
-        // Body (Menacing S-shape)
+        // Body 
         ctx.beginPath();
         ctx.moveTo(30, -20);
-        ctx.quadraticCurveTo(10, -40, -10, -20); // Neck
-        ctx.quadraticCurveTo(-30, 0, -10, 30); // Body
-        ctx.quadraticCurveTo(10, 50, 40, 40); // Tail base
-        ctx.lineTo(60, 50); // Tail tip
+        ctx.quadraticCurveTo(10, -40, -10, -20);
+        ctx.quadraticCurveTo(-30, 0, -10, 30);
+        ctx.quadraticCurveTo(10, 50, 40, 40);
+        ctx.lineTo(60, 50);
         ctx.lineTo(40, 30);
         ctx.quadraticCurveTo(20, 30, 10, 10);
         ctx.lineTo(30, -20);
         ctx.fill();
         ctx.stroke();
-        // Wings (Bat-like)
-        ctx.fillStyle = "#2E0854"; // Darker Purple
+        // Wings
+        ctx.fillStyle = "#2E0854";
         ctx.beginPath();
         ctx.moveTo(0, 0);
         ctx.lineTo(40, -50);
@@ -214,33 +237,26 @@ document.addEventListener("DOMContentLoaded", () => {
         // Head
         ctx.fillStyle = "#4B0082";
         ctx.beginPath();
-        ctx.moveTo(-10, -20); // Neck base
-        ctx.lineTo(-30, -35); // Snout top
-        ctx.lineTo(-35, -25); // Nose
-        ctx.lineTo(-25, -20); // Jaw
-        ctx.lineTo(-10, -10); // Neck front
+        ctx.moveTo(-10, -20);
+        ctx.lineTo(-30, -35);
+        ctx.lineTo(-35, -25);
+        ctx.lineTo(-25, -20);
+        ctx.lineTo(-10, -10);
         ctx.fill();
         ctx.stroke();
-        // Eye (Menacing Glowing Red/Yellow)
-        ctx.fillStyle = "#FFD700"; // Gold
+        // Eye
+        ctx.fillStyle = "#FFD700";
         ctx.beginPath();
         ctx.moveTo(-20, -30);
         ctx.lineTo(-25, -28);
         ctx.lineTo(-20, -25);
         ctx.fill();
         // Horns
-        ctx.strokeStyle = "#D8BFD8"; // Thistle (Bone color)
+        ctx.strokeStyle = "#D8BFD8";
         ctx.beginPath();
         ctx.moveTo(-15, -30);
         ctx.lineTo(-10, -45);
         ctx.stroke();
-        // Smoke/Fire from nostrils
-        if (frameCount % 60 < 20) {
-            ctx.fillStyle = "rgba(100, 100, 100, 0.5)";
-            ctx.beginPath();
-            ctx.arc(-35, -25, 3, 0, Math.PI * 2);
-            ctx.fill();
-        }
         ctx.restore();
     }
     /* ================= UPDATE ================= */
@@ -256,20 +272,23 @@ document.addEventListener("DOMContentLoaded", () => {
         /* Level Win Logic */
         if (levelWin) {
             winTimer++;
+            // Magical sparkle for wizard
             magicSpark(player.x + 30, player.y + 30);
-            spawnParticles(castle.x + 65, castle.y + 80, "cyan", 1, 3);
-            // Add sparkles around the center for text "LEVEL COMPLETED"
-            if (winTimer > 30 && winTimer < 150 && frameCount % 5 === 0) {
-                spawnParticles(canvas.width / 2 + (Math.random() - 0.5) * 300, canvas.height / 2 + (Math.random() - 0.5) * 50, "gold", 2, 2);
-            }
-            if (dragonObj.active) {
-                dragonObj.yOffset = Math.sin(frameCount * 0.5) * 5;
-                if (frameCount % 5 === 0) {
-                    dragonBreath(dragonObj.x, dragonObj.y + 40);
+            // Dragon emits fire particles that target the text points
+            if (dragonObj.active && winTimer < 300) { // Limit duration
+                // Emit 5 particles per frame to fill text faster
+                for (let k = 0; k < 5; k++) {
+                    if (dragonObj.textTargetIndex < textPoints.length) {
+                        const target = textPoints[dragonObj.textTargetIndex];
+                        dragonBreath(dragonObj.x, dragonObj.y + 40, target);
+                        dragonObj.textTargetIndex = (dragonObj.textTargetIndex + 1) % textPoints.length; // Loop or stop? Let's loop for continuous effect or fill?
+                        // Actually let's just pick random points to fill it up organically
+                        const randIndex = Math.floor(Math.random() * textPoints.length);
+                        dragonBreath(dragonObj.x, dragonObj.y + 40, textPoints[randIndex]);
+                    }
                 }
             }
-            if (textScale < 1.3) textScale += 0.05;
-            if (winTimer > 180) {
+            if (winTimer > 350) { // Longer celebration for text to form
                 levelIndex++;
                 loadLevel(levelIndex);
             }
@@ -315,15 +334,11 @@ document.addEventListener("DOMContentLoaded", () => {
             if (dragonObj.attackTimer > 120) {
                 const dir = (player.x < dragonObj.x) ? -1 : 1;
                 dragonObj.dir = dir;
-                // Adjust fireball start pos based on dragon size/image
                 const startX = dragonObj.x + (dir === 1 ? dragonObj.w : 0);
                 fireballs.push(new Fireball(startX, dragonObj.y + 40, dir));
                 dragonObj.attackTimer = 0;
             }
-            if (hit(player, dragonObj)) {
-                gameOver = true;
-                deathSound.play().catch(() => { });
-            }
+            // COLLISION REMOVED: Player safe from dragon body
         }
         /* Fireballs Update */
         for (let i = fireballs.length - 1; i >= 0; i--) {
@@ -333,10 +348,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 fireballs.splice(i, 1);
                 continue;
             }
-            if (hit(player, fb)) {
-                gameOver = true;
-                deathSound.play().catch(() => { });
-            }
+            // COLLISION REMOVED: Player safe from fireballs
         }
         /* Death Checks */
         if (player.y > FALL_DEATH_Y) {
@@ -379,14 +391,12 @@ document.addEventListener("DOMContentLoaded", () => {
         /* Dragon */
         if (dragonObj.active) {
             if (dragonImg.complete && dragonImg.naturalWidth > 0) {
-                // Use Image if loaded
                 ctx.save();
-                // Optional: Flip if needed, assuming sprite faces left
-                // if(dragonObj.dir === 1) { ctx.scale(-1, 1); ... }
+                // Assuming sprite faces left
+                // Adjust drawing based on direction if needed
                 ctx.drawImage(dragonImg, dragonObj.x, dragonObj.y, dragonObj.w, dragonObj.h);
                 ctx.restore();
             } else {
-                // Use Procedural fallback
                 drawProceduralDragon(ctx, dragonObj.x, dragonObj.y, dragonObj.w, dragonObj.h);
             }
         }
@@ -397,13 +407,24 @@ document.addEventListener("DOMContentLoaded", () => {
         /* Particles */
         particles.forEach(p => {
             ctx.fillStyle = p.color || "cyan";
-            ctx.globalAlpha = p.life / 40;
+            // If target exists, move towards it
+            if (p.target) {
+                // Simple easing towards target
+                const dx = p.target.x - p.x;
+                const dy = p.target.y - p.y;
+                p.x += dx * 0.1;
+                p.y += dy * 0.1;
+                // Keep particle alive longer while moving to target
+                if (Math.abs(dx) < 2 && Math.abs(dy) < 2) p.life = Math.max(p.life, 50); // Stay at target
+            } else {
+                p.x += p.vx;
+                p.y += p.vy;
+            }
+            ctx.globalAlpha = Math.min(1.0, p.life / 20);
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
             ctx.fill();
             ctx.globalAlpha = 1.0;
-            p.x += p.vx;
-            p.y += p.vy;
             p.life--;
         });
         particles = particles.filter(p => p.life > 0);
@@ -419,17 +440,7 @@ document.addEventListener("DOMContentLoaded", () => {
             ctx.font = "48px serif";
             ctx.fillText("YOU DIED - Press R", 300, 260);
         }
-        if (levelWin) {
-            ctx.save();
-            ctx.translate(canvas.width / 2, canvas.height / 2);
-            ctx.scale(textScale, textScale);
-            ctx.fillStyle = "#ffd700";
-            ctx.font = "bold 50px serif";
-            ctx.shadowColor = "orange";
-            ctx.shadowBlur = 20;
-            ctx.fillText("LEVEL COMPLETED!", -220, 0);
-            ctx.restore();
-        }
+        // Level Win Text is handled by particles now!
         if (finalWin) {
             ctx.font = "60px serif";
             ctx.fillStyle = "#00ff00";
