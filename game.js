@@ -57,25 +57,33 @@ document.addEventListener("DOMContentLoaded", () => {
     function spark(x, y) { spawnParticles(x, y, "gold", 5, 4); }
     function fireSpark(x, y) { spawnParticles(x, y, "orange", 3, 3, 20); }
     function magicSpark(x, y) { spawnParticles(x, y, "violet", 2, 1, 60); }
-    function dragonBreath(x, y, target = null) { spawnParticles(x, y, "#ff4500", 5, 4, 100, 4, target); }
+    function dragonBreath(x, y, target = null) { spawnParticles(x, y, "#ff4500", 5, 4, 150, 4, target); }
     /* ================= FIRE TEXT LOGIC ================= */
-    // Simple pixel map for "LEVEL COMPLETED" (very low res for particles)
+    // Simple pixel map for "LEVEL COMPLETED" 
     const textPoints = [];
     function generateTextPoints(text) {
-        if (textPoints.length > 0) return;
+        textPoints.length = 0; // Clear existing
+        if (!text) return;
         const tempCanvas = document.createElement("canvas");
         const tCtx = tempCanvas.getContext("2d");
-        tempCanvas.width = 400;
-        tempCanvas.height = 100;
-        tCtx.font = "bold 40px 'Verdana', sans-serif"; // Using Verdana for blocky look
+        tempCanvas.width = 800; // Increased width to fit text
+        tempCanvas.height = 200; // Increased height
+        tCtx.textAlign = "center";
+        tCtx.baseLine = "middle";
+        tCtx.font = "bold 50px 'Verdana', sans-serif"; // Using Verdana for blocky look
         tCtx.fillStyle = "white";
-        tCtx.fillText(text, 10, 50);
-        const data = tCtx.getImageData(0, 0, 400, 100).data;
-        for (let y = 0; y < 100; y += 4) { // Sample every 4th pixel
-            for (let x = 0; x < 400; x += 4) {
-                if (data[(y * 400 + x) * 4 + 3] > 128) {
-                    // Centered coordinates
-                    textPoints.push({ x: x + canvas.width / 2 - 200, y: y + canvas.height / 2 - 50 });
+        tCtx.fillText(text, tempCanvas.width / 2, tempCanvas.height / 2);
+        const data = tCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height).data;
+        const stride = 4; // Sample every 4th pixel for speed
+        for (let y = 0; y < tempCanvas.height; y += stride) {
+            for (let x = 0; x < tempCanvas.width; x += stride) {
+                if (data[(y * tempCanvas.width + x) * 4 + 3] > 128) {
+                    // Centered coordinates relative to game canvas
+                    // tempCanvas center is (400, 100). Game canvas center is (480, 270)
+                    textPoints.push({
+                        x: x + (canvas.width / 2 - tempCanvas.width / 2),
+                        y: y + (canvas.height / 2 - tempCanvas.height / 2)
+                    });
                 }
             }
         }
@@ -175,7 +183,6 @@ document.addEventListener("DOMContentLoaded", () => {
             dragonObj.active = false;
         }
         fireballs = [];
-        textPoints.length = 0; // Clear text points
         generateTextPoints("LEVEL COMPLETED");
         player.x = l.start.x;
         player.y = l.start.y;
@@ -275,20 +282,21 @@ document.addEventListener("DOMContentLoaded", () => {
             // Magical sparkle for wizard
             magicSpark(player.x + 30, player.y + 30);
             // Dragon emits fire particles that target the text points
-            if (dragonObj.active && winTimer < 300) { // Limit duration
-                // Emit 5 particles per frame to fill text faster
-                for (let k = 0; k < 5; k++) {
-                    if (dragonObj.textTargetIndex < textPoints.length) {
+            if (dragonObj.active && winTimer < 400 && textPoints.length > 0) { // Limit duration
+                // Emit MORE particles per frame
+                for (let k = 0; k < 8; k++) {
+                    // Fill sequentially for outline effect + randomly for fill
+                    if (frameCount % 2 === 0 && dragonObj.textTargetIndex < textPoints.length) {
                         const target = textPoints[dragonObj.textTargetIndex];
                         dragonBreath(dragonObj.x, dragonObj.y + 40, target);
-                        dragonObj.textTargetIndex = (dragonObj.textTargetIndex + 1) % textPoints.length; // Loop or stop? Let's loop for continuous effect or fill?
-                        // Actually let's just pick random points to fill it up organically
+                        dragonObj.textTargetIndex = (dragonObj.textTargetIndex + 1) % textPoints.length;
+                    } else {
                         const randIndex = Math.floor(Math.random() * textPoints.length);
                         dragonBreath(dragonObj.x, dragonObj.y + 40, textPoints[randIndex]);
                     }
                 }
             }
-            if (winTimer > 350) { // Longer celebration for text to form
+            if (winTimer > 450) { // Longer celebration for text to form
                 levelIndex++;
                 loadLevel(levelIndex);
             }
@@ -412,10 +420,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 // Simple easing towards target
                 const dx = p.target.x - p.x;
                 const dy = p.target.y - p.y;
-                p.x += dx * 0.1;
-                p.y += dy * 0.1;
+                p.x += dx * 0.15; // Faster ease
+                p.y += dy * 0.15;
                 // Keep particle alive longer while moving to target
-                if (Math.abs(dx) < 2 && Math.abs(dy) < 2) p.life = Math.max(p.life, 50); // Stay at target
+                if (Math.abs(dx) < 2 && Math.abs(dy) < 2) {
+                    p.life = Math.max(p.life, 60); // Stay at target
+                    p.x = p.target.x; // Snap to avoid jitter
+                    p.y = p.target.y;
+                }
             } else {
                 p.x += p.vx;
                 p.y += p.vy;
