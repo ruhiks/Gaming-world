@@ -18,6 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let winTimer = 0;
     let bgX = 0;
     let textScale = 0;
+    let frameCount = 0;
     /* ================= ASSETS ================= */
     const load = s => { const i = new Image(); i.src = s; return i; };
     const bg = load("assets/bg.png");
@@ -40,14 +41,54 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     /* ================= PARTICLES ================= */
     let particles = [];
-    function spark(x, y) {
-        for (let i = 0; i < 20; i++) {
+    function spawnParticles(x, y, color, count = 10, speed = 2, life = 40, size = 3) {
+        for (let i = 0; i < count; i++) {
             particles.push({
                 x, y,
-                vx: (Math.random() - 0.5) * 4,
-                vy: (Math.random() - 0.5) * 4,
-                life: 40
+                vx: (Math.random() - 0.5) * speed,
+                vy: (Math.random() - 0.5) * speed,
+                life: life + Math.random() * 20,
+                color: color,
+                size: Math.random() * size + 1
             });
+        }
+    }
+    function spark(x, y) { spawnParticles(x, y, "gold", 5, 4); }
+    function fireSpark(x, y) { spawnParticles(x, y, "orange", 3, 3, 20); }
+    function magicSpark(x, y) { spawnParticles(x, y, "violet", 2, 1, 60); }
+    function dragonBreath(x, y) { spawnParticles(x, y, "#ff4500", 5, 4, 60, 4); }
+    /* ================= OBJECTS ================= */
+    let blocks = [], spikes = [], castle = {}, fireballs = [];
+    /* Dragon Object */
+    const dragonObj = {
+        x: 0, y: 0, w: 120, h: 100,
+        dir: -1,
+        attackTimer: 0,
+        active: false
+    };
+    class Fireball {
+        constructor(x, y, dir) {
+            this.x = x;
+            this.y = y;
+            this.w = 25;
+            this.h = 25;
+            this.vx = dir * 6;
+            this.life = 100;
+        }
+        update() {
+            this.x += this.vx;
+            this.life--;
+            if (frameCount % 4 === 0) spawnParticles(this.x + this.w / 2, this.y + this.h / 2, "orange", 2, 2);
+        }
+        draw() {
+            ctx.fillStyle = "#ff4500";
+            ctx.beginPath();
+            ctx.arc(this.x + 12, this.y + 12, 12, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "yellow";
+            ctx.beginPath();
+            ctx.arc(this.x + 12, this.y + 12, 6, 0, Math.PI * 2);
+            ctx.fill();
         }
     }
     /* ================= LEVEL DATA ================= */
@@ -55,53 +96,66 @@ document.addEventListener("DOMContentLoaded", () => {
         {
             start: { x: 40, y: 420 },
             blocks: [
-                { x: 0, y: 500, w: 960, h: 40 },
-                { x: 300, y: 430, w: 160, h: 30 },
-                { x: 600, y: 360, w: 160, h: 30 }
+                { x: 0, y: 500, w: 960, h: 40, type: 'static' },
+                { x: 300, y: 430, w: 160, h: 30, type: 'static' },
+                { x: 600, y: 360, w: 160, h: 30, type: 'moving', vx: 2, minX: 550, maxX: 750 }
             ],
             spikes: [{ x: 420, y: 470, w: 40, h: 30 }],
             castle: { x: 820, y: 170, w: 130, h: 160 },
-            dragon: { x: 720, y: 240 }
+            dragon: { x: 720, y: 240, active: true }
         },
         {
             start: { x: 40, y: 420 },
             blocks: [
-                { x: 0, y: 500, w: 200, h: 40 },
-                { x: 260, y: 430, w: 120, h: 30 },
-                { x: 450, y: 350, w: 120, h: 30 },
-                { x: 650, y: 280, w: 120, h: 30 }
+                { x: 0, y: 500, w: 200, h: 40, type: 'static' },
+                { x: 260, y: 430, w: 120, h: 30, type: 'moving', vy: 2, minY: 300, maxY: 430 },
+                { x: 450, y: 350, w: 120, h: 30, type: 'static' },
+                { x: 650, y: 280, w: 120, h: 30, type: 'static' }
             ],
             spikes: [
                 { x: 200, y: 500, w: 100, h: 30 },
                 { x: 500, y: 500, w: 100, h: 30 }
             ],
             castle: { x: 820, y: 100, w: 130, h: 160 },
-            dragon: { x: 730, y: 180 }
+            dragon: { x: 730, y: 180, active: true }
         },
         {
             start: { x: 20, y: 450 },
             blocks: [
-                { x: 0, y: 520, w: 150, h: 30 },
-                { x: 200, y: 450, w: 100, h: 25 },
-                { x: 360, y: 350, w: 100, h: 25 },
-                { x: 520, y: 250, w: 100, h: 25 },
-                { x: 700, y: 180, w: 200, h: 30 }
+                { x: 0, y: 520, w: 150, h: 30, type: 'static' },
+                { x: 200, y: 450, w: 100, h: 25, type: 'moving', vx: 3, minX: 200, maxX: 400 },
+                { x: 360, y: 350, w: 100, h: 25, type: 'static' },
+                { x: 520, y: 250, w: 100, h: 25, type: 'moving', vy: -2, minY: 150, maxY: 350 },
+                { x: 700, y: 180, w: 200, h: 30, type: 'static' }
             ],
             spikes: [
                 { x: 150, y: 520, w: 450, h: 30 }
             ],
             castle: { x: 820, y: 40, w: 130, h: 160 },
-            dragon: { x: 730, y: 100 }
+            dragon: { x: 730, y: 100, active: true }
         }
     ];
-    let blocks = [], spikes = [], castle = {}, dragon = {};
     function loadLevel(i) {
-        if (i >= levels.length) { finalWin = true; return; }
+        // FIX: Reset levelWin when game is finished so loop stops
+        if (i >= levels.length) {
+            finalWin = true;
+            levelWin = false; // FIX: Ensure levelWin is false
+            return;
+        }
         const l = levels[i];
-        blocks = l.blocks;
+        // Initialize blocks with direction for moving calculation
+        blocks = l.blocks.map(b => ({ ...b, ox: b.x, oy: b.y, dir: 1 }));
         spikes = l.spikes;
         castle = l.castle;
-        dragon = l.dragon;
+        if (l.dragon) {
+            dragonObj.x = l.dragon.x;
+            dragonObj.y = l.dragon.y;
+            dragonObj.active = l.dragon.active;
+            dragonObj.attackTimer = 0;
+        } else {
+            dragonObj.active = false;
+        }
+        fireballs = [];
         player.x = l.start.x;
         player.y = l.start.y;
         player.vx = 0;
@@ -115,7 +169,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const keys = {};
     window.addEventListener("keydown", e => {
         keys[e.code] = true;
-        if (gameOver && e.code === "KeyR") loadLevel(levelIndex);
+        if (gameOver && e.code === "KeyR") {
+            // If restarting from game over, keep current level
+            // If final win, restart from level 0?
+            if (finalWin) {
+                levelIndex = 0;
+                finalWin = false;
+                loadLevel(0);
+            } else {
+                loadLevel(levelIndex);
+            }
+        }
     });
     window.addEventListener("keyup", e => keys[e.code] = false);
     /* ================= COLLISION ================= */
@@ -127,20 +191,39 @@ document.addEventListener("DOMContentLoaded", () => {
     );
     /* ================= UPDATE ================= */
     function update() {
+        frameCount++;
         bgX -= CLOUD_SPEED;
         if (bgX <= -canvas.width) bgX = 0;
-        if (gameOver || finalWin) return;
+        if (gameOver) return; // Stop update on game over
+        if (finalWin) return; // Stop physics update on final win
         /* WIN animation */
         if (levelWin) {
             winTimer++;
             spark(player.x + 30, player.y);
             if (textScale < 1.3) textScale += 0.05;
-            if (winTimer > 100) {
+            // Dragon fire effect during win
+            if (dragonObj.active && frameCount % 10 === 0) {
+                dragonBreath(dragonObj.x, dragonObj.y + 40);
+            }
+            if (winTimer > 150) {
                 levelIndex++;
                 loadLevel(levelIndex);
             }
             return;
         }
+        /* Moving Platforms Logic */
+        blocks.forEach(b => {
+            if (b.type === 'moving') {
+                if (b.vx) {
+                    b.x += b.vx * b.dir;
+                    if (b.x > b.maxX || b.x < b.minX) b.dir *= -1;
+                }
+                if (b.vy) {
+                    b.y += b.vy * b.dir;
+                    if (b.y > b.maxY || b.y < b.minY) b.dir *= -1;
+                }
+            }
+        });
         /* movement */
         player.vx = 0;
         if (keys.ArrowLeft) { player.vx = -SPEED; player.facing = false; }
@@ -152,20 +235,49 @@ document.addEventListener("DOMContentLoaded", () => {
         player.y += player.vy;
         player.onGround = false;
         blocks.forEach(b => {
-            if (hit(player, b) && player.vy >= 0 && player.y + player.h - player.vy <= b.y) {
+            // Collision resolution
+            if (hit(player, b) && player.vy >= 0 && player.y + player.h - player.vy <= b.y + (b.vy || 0) + 5) {
                 player.y = b.y - player.h;
                 player.vy = 0;
                 player.onGround = true;
+                // Move player with platform
+                if (b.type === 'moving') {
+                    if (b.vx) player.x += b.vx * b.dir;
+                    // Y movement is handled implicitly by keeping player on top
+                }
             }
         });
+        /* Dragon Logic */
+        if (dragonObj.active) {
+            dragonObj.attackTimer++;
+            if (dragonObj.attackTimer > 120) { // Fire roughly every 2 seconds
+                const dir = (player.x < dragonObj.x) ? -1 : 1;
+                dragonObj.dir = dir;
+                const startX = dragonObj.x + (dir === 1 ? dragonObj.w : 0);
+                fireballs.push(new Fireball(startX, dragonObj.y + 40, dir));
+                dragonObj.attackTimer = 0;
+            }
+            // Safety: No collision check with dragon body
+        }
+        /* Fireballs Update */
+        for (let i = fireballs.length - 1; i >= 0; i--) {
+            let fb = fireballs[i];
+            fb.update();
+            if (fb.life <= 0 || fb.x < 0 || fb.x > canvas.width) {
+                fireballs.splice(i, 1);
+                continue;
+            }
+            // Safety: No collision check with fireballs
+        }
+        /* Death Check */
         if (player.y > FALL_DEATH_Y) {
             gameOver = true;
-            deathSound.play();
+            deathSound.play().catch(() => { });
         }
         spikes.forEach(s => {
             if (hit(player, s)) {
                 gameOver = true;
-                deathSound.play();
+                deathSound.play().catch(() => { });
             }
         });
         if (hit(player, castle)) {
@@ -177,38 +289,107 @@ document.addEventListener("DOMContentLoaded", () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(bg, bgX, 0, canvas.width, canvas.height);
         ctx.drawImage(bg, bgX + canvas.width, 0, canvas.width, canvas.height);
+        /* Final Win Beams - ONLY on final screen */
+        if (finalWin) {
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            ctx.save();
+            ctx.translate(cx, cy);
+            // Draw 12 rotating beams
+            const time = Date.now() * 0.001;
+            // Glow behind
+            ctx.shadowBlur = 50;
+            ctx.shadowColor = "white";
+            for (let i = 0; i < 12; i++) {
+                ctx.rotate(Math.PI * 2 / 12 + time * 0.2); // Rotating
+                ctx.beginPath();
+                // Gradient for beam
+                const grad = ctx.createLinearGradient(0, 0, 0, 600);
+                grad.addColorStop(0, `hsla(${(i * 30 + time * 50) % 360}, 100%, 70%, 0.5)`);
+                grad.addColorStop(1, "transparent");
+                ctx.fillStyle = grad;
+                ctx.moveTo(0, 0);
+                ctx.lineTo(30, 600); // beam width at end
+                ctx.lineTo(-30, 600);
+                ctx.fill();
+                ctx.rotate(-(Math.PI * 2 / 12 + time * 0.2)); // Reset rotation for next iteration? No context saves handled it? No, raw context calls.
+                // Wait, rotate is additive in loop unless restored.
+                // Correct way in loop:
+                // But I want them evenly spaced.
+            }
+            // Better loop for rotation
+            for (let i = 0; i < 12; i++) {
+                ctx.save();
+                ctx.rotate((Math.PI * 2 / 12) * i + time * 0.5);
+                const grad = ctx.createLinearGradient(0, 0, 0, 400);
+                grad.addColorStop(0, "rgba(255, 255, 255, 0.5)");
+                grad.addColorStop(1, "rgba(255, 215, 0, 0)"); // Gold fade
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(40, 500);
+                ctx.lineTo(-40, 500);
+                ctx.fill();
+                ctx.restore();
+            }
+            ctx.restore();
+        }
         blocks.forEach(b => ctx.drawImage(blockImg, b.x, b.y, b.w, b.h));
         spikes.forEach(s => ctx.drawImage(spikeImg, s.x, s.y, s.w, s.h));
         ctx.shadowColor = "gold";
         ctx.shadowBlur = 25;
         ctx.drawImage(castleImg, castle.x, castle.y, castle.w, castle.h);
         ctx.shadowBlur = 0;
-        ctx.drawImage(dragonImg, dragon.x, dragon.y, 120, 100);
-        ctx.drawImage(wizard, player.x, player.y, 80, 80);
+        if (dragonObj.active) {
+            ctx.drawImage(dragonImg, dragonObj.x, dragonObj.y, 120, 100);
+        }
+        fireballs.forEach(fb => fb.draw());
+        if (!gameOver && !finalWin) {
+            ctx.drawImage(wizard, player.x, player.y, 80, 80);
+        }
         /* particles */
         particles.forEach(p => {
-            ctx.fillStyle = "cyan";
-            ctx.fillRect(p.x, p.y, 3, 3);
+            ctx.fillStyle = p.color || "cyan";
+            ctx.fillRect(p.x, p.y, p.size || 3, p.size || 3);
             p.x += p.vx; p.y += p.vy; p.life--;
         });
         particles = particles.filter(p => p.life > 0);
         ctx.fillStyle = "white";
         ctx.font = "18px Arial";
-        ctx.fillText("Level " + (levelIndex + 1), 20, 30);
+        if (!finalWin) ctx.fillText("Level " + (levelIndex + 1), 20, 30);
         if (gameOver) {
+            ctx.fillStyle = "red";
+            ctx.font = "48px serif";
             ctx.fillText("YOU DIED - Press R", 350, 260);
         }
         if (levelWin) {
             ctx.save();
             ctx.translate(canvas.width / 2, canvas.height / 2);
             ctx.scale(textScale, textScale);
-            ctx.font = "40px Arial";
-            ctx.fillText("LEVEL COMPLETED!", -180, 0);
+            ctx.fillStyle = "#ffd700";
+            ctx.shadowColor = "orange";
+            ctx.shadowBlur = 20;
+            ctx.font = "bold 50px Arial";
+            ctx.fillText("LEVEL COMPLETED!", -220, 0);
             ctx.restore();
         }
         if (finalWin) {
-            ctx.font = "48px Arial";
-            ctx.fillText("DUNGEON CLEARED!", 200, 260);
+            ctx.save();
+            // Centered text
+            ctx.textAlign = "center";
+            ctx.shadowColor = "white";
+            ctx.shadowBlur = 10;
+            ctx.font = "bold 60px Arial";
+            ctx.fillStyle = "#00ff00";
+            ctx.fillText("DUNGEON CLEARED!", canvas.width / 2, canvas.height / 2);
+            ctx.font = "30px Arial";
+            ctx.fillStyle = "white";
+            ctx.shadowBlur = 0;
+            ctx.fillText("The Wizard is Victorious!", canvas.width / 2, canvas.height / 2 + 50);
+            ctx.font = "20px Arial";
+            ctx.fillStyle = "#aaa";
+            ctx.fillText("Press R to Play Again", canvas.width / 2, canvas.height / 2 + 100);
+            ctx.restore();
         }
     }
     /* ================= LOOP ================= */
@@ -221,7 +402,6 @@ document.addEventListener("DOMContentLoaded", () => {
     loadLevel(0);
     loop();
 });
-
 
 
 
