@@ -330,7 +330,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (winTimer === 1) winRing(canvas.width / 2, canvas.height / 2);
             if (dragonObj.active && frameCount % 8 === 0) dragonBreath(dragonObj.x, dragonObj.y + 40);
             updateParticles();
-            if (winTimer > 200) { levelIndex++; startFade(() => loadLevel(levelIndex)); }
+            if (winTimer > 200) { levelWin = false; levelIndex++; startFade(() => loadLevel(levelIndex)); }
             return;
         }
         /* Moving platforms */
@@ -644,8 +644,6 @@ document.addEventListener("DOMContentLoaded", () => {
     loadLevel(0);
     loop();
 });
-
-
 
 
 
