@@ -12,7 +12,7 @@ const SPEED = 4;
 const JUMP = 14;
 const CLOUD_SPEED = 0.4;
 
-/* ================= STATE ================= */
+/* ================= GAME STATE ================= */
 
 let levelIndex = 0;
 let levelWin = false;
@@ -51,14 +51,14 @@ function spawnFire(x,y){
     particles.push({
         x:x,
         y:y,
-        vx:-3-Math.random()*3,
+        vx:-3 - Math.random()*3,
         vy:(Math.random()-0.5)*2,
         life:80,
         size:4
     });
 }
 
-/* ================= LEVELS ================= */
+/* ================= LEVEL DATA ================= */
 
 const levels = [
 
@@ -114,6 +114,7 @@ function loadLevel(i){
 
     if(i >= levels.length){
         finalWin = true;
+        levelWin = false;
         return;
     }
 
@@ -172,17 +173,13 @@ if(levelWin){
 
     winTimer++;
 
-    // dragon fire always emits
-    for(let i=0;i<5;i++)
+    // Dragon always emits fire
+    for(let i=0;i<6;i++)
         spawnFire(dragon.x, dragon.y+40);
 
     if(winTimer > 120){
         levelIndex++;
-        if(levelIndex >= levels.length){
-            finalWin = true;
-        } else {
-            loadLevel(levelIndex);
-        }
+        loadLevel(levelIndex);
     }
 
     return;
@@ -277,7 +274,7 @@ spikes.forEach(s=>{
 
 ctx.save();
 ctx.shadowColor="gold";
-ctx.shadowBlur=25;
+ctx.shadowBlur=30;
 ctx.drawImage(castleImg,castle.x,castle.y,castle.w,castle.h);
 ctx.restore();
 
@@ -324,7 +321,6 @@ loadLevel(0);
 loop();
 
 });
-
     
 
 
