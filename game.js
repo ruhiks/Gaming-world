@@ -12,7 +12,22 @@ const castleImg = new Image(); castleImg.src = "assets/castle.png";
 const dragonImg = new Image(); dragonImg.src = "assets/dragon.png";
 
 /* ================= AUDIO ================= */
+const bgm = new Audio("assets/music.mp3");
+bgm.loop = true;
+bgm.volume = 0.5;
+
 const deathSound = new Audio("assets/death.mp3");
+
+let musicStarted = false;
+function startMusic() {
+    if (!musicStarted) {
+        bgm.play().catch(()=>{});
+        musicStarted = true;
+    }
+}
+
+window.addEventListener("click", startMusic);
+window.addEventListener("keydown", startMusic);
 
 /* ================= PLAYER ================= */
 const player = {
@@ -32,9 +47,20 @@ let level = 0;
 let gameOver = false;
 let win = false;
 
-/* ================= FIRE ================= */
-let fireballs = [];
-let fireTimer = 0;
+/* ================= FIRE PARTICLES ================= */
+let fireParticles = [];
+
+function createFire(x, y) {
+    for (let i = 0; i < 5; i++) {
+        fireParticles.push({
+            x,
+            y,
+            vx: -3 - Math.random() * 2,
+            vy: (Math.random() - 0.5) * 2,
+            life: 30
+        });
+    }
+}
 
 /* ================= LEVELS ================= */
 const levels = [
@@ -45,32 +71,8 @@ const levels = [
             { x: 600, y: 350, w: 120, h: 20 }
         ],
         spikes: [{ x: 450, y: 480, w: 40, h: 20 }],
-        dragon: { x: 720, y: 250, fireRate: 120 },
+        dragon: { x: 720, y: 250 },
         castle: { x: 820, y: 250, w: 100, h: 120 }
-    },
-    {
-        platforms: [
-            { x: 0, y: 500, w: 200, h: 40 },
-            { x: 250, y: 420, w: 120, h: 20, move: true, min: 250, max: 500 },
-            { x: 600, y: 320, w: 120, h: 20 }
-        ],
-        spikes: [
-            { x: 200, y: 500, w: 100, h: 20 },
-            { x: 500, y: 300, w: 40, h: 20 }
-        ],
-        dragon: { x: 720, y: 200, fireRate: 90 },
-        castle: { x: 820, y: 180, w: 100, h: 120 }
-    },
-    {
-        platforms: [
-            { x: 0, y: 520, w: 120, h: 20 },
-            { x: 200, y: 420, w: 100, h: 20, move: true, min: 200, max: 450 },
-            { x: 500, y: 320, w: 100, h: 20 },
-            { x: 700, y: 220, w: 150, h: 20 }
-        ],
-        spikes: [{ x: 150, y: 520, w: 400, h: 20 }],
-        dragon: { x: 720, y: 120, fireRate: 60 },
-        castle: { x: 820, y: 80, w: 100, h: 120 }
     }
 ];
 
@@ -83,7 +85,7 @@ let castle = {};
 function loadLevel(i) {
     const l = levels[i];
 
-    platforms = l.platforms.map(p => ({ ...p, dir: 1 }));
+    platforms = l.platforms;
     spikes = l.spikes;
     dragon = l.dragon;
     castle = l.castle;
@@ -92,8 +94,7 @@ function loadLevel(i) {
     player.y = 400;
     player.vy = 0;
 
-    fireballs = [];
-    fireTimer = 0;
+    fireParticles = [];
     win = false;
 }
 
@@ -110,17 +111,6 @@ function hit(a, b) {
         a.y < b.y + b.h &&
         a.y + a.h > b.y
     );
-}
-
-/* ================= FIRE ================= */
-function shootFire() {
-    fireballs.push({
-        x: dragon.x,
-        y: dragon.y + 30,
-        w: 25,
-        h: 25,
-        vx: -6 - level
-    });
 }
 
 /* ================= UPDATE ================= */
@@ -143,11 +133,6 @@ function update() {
     player.onGround = false;
 
     platforms.forEach(p => {
-        if (p.move) {
-            p.x += 2 * p.dir;
-            if (p.x > p.max || p.x < p.min) p.dir *= -1;
-        }
-
         if (hit(player, p) && player.vy >= 0) {
             player.y = p.y - player.h;
             player.vy = 0;
@@ -155,20 +140,26 @@ function update() {
         }
     });
 
-    /* FIRE SYSTEM */
-    fireTimer++;
-    if (fireTimer > dragon.fireRate) {
-        shootFire();
-        fireTimer = 0;
-    }
+    /* 🔥 DRAGON FIRE EMISSION */
+    createFire(dragon.x, dragon.y + 30);
 
-    fireballs.forEach(f => {
+    fireParticles.forEach(f => {
         f.x += f.vx;
-        if (hit(player, f)) {
+        f.y += f.vy;
+        f.life--;
+
+        if (
+            player.x < f.x &&
+            player.x + player.w > f.x &&
+            player.y < f.y &&
+            player.y + player.h > f.y
+        ) {
             if (!gameOver) deathSound.play();
             gameOver = true;
         }
     });
+
+    fireParticles = fireParticles.filter(f => f.life > 0);
 
     /* DEATH */
     if (player.y > canvas.height) {
@@ -186,15 +177,6 @@ function update() {
     /* WIN */
     if (hit(player, castle)) {
         win = true;
-
-        setTimeout(() => {
-            level++;
-            if (level >= levels.length) {
-                alert("🏆 Completed!");
-                level = 0;
-            }
-            loadLevel(level);
-        }, 1500);
     }
 }
 
@@ -213,29 +195,24 @@ function draw() {
     /* Spikes */
     spikes.forEach(s => ctx.drawImage(spikeImg, s.x, s.y, s.w, s.h));
 
-    /* 🔥 DRAGON (REAL IMAGE + GLOW) */
+    /* 🐉 DRAGON */
     ctx.shadowColor = "orange";
-    ctx.shadowBlur = 25;
+    ctx.shadowBlur = 30;
     ctx.drawImage(dragonImg, dragon.x, dragon.y, 80, 80);
     ctx.shadowBlur = 0;
 
-    /* 🔥 FIRE */
-    ctx.fillStyle = "orange";
-    fireballs.forEach(f => {
-        ctx.shadowColor = "red";
-        ctx.shadowBlur = 20;
-        ctx.fillRect(f.x, f.y, f.w, f.h);
-        ctx.shadowBlur = 0;
+    /* 🔥 FIRE PARTICLES */
+    fireParticles.forEach(f => {
+        ctx.fillStyle = `rgba(255, ${100 + Math.random()*155}, 0, ${f.life/30})`;
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, 6, 0, Math.PI * 2);
+        ctx.fill();
     });
 
-    /* ✨ CASTLE LIGHT (REAL AURA EFFECT) */
+    /* ✨ CASTLE LIGHT */
     let gradient = ctx.createRadialGradient(
-        castle.x + 50,
-        castle.y + 60,
-        10,
-        castle.x + 50,
-        castle.y + 60,
-        120
+        castle.x + 50, castle.y + 60, 10,
+        castle.x + 50, castle.y + 60, 120
     );
 
     gradient.addColorStop(0, "rgba(255,255,150,0.9)");
@@ -260,16 +237,10 @@ function draw() {
     if (gameOver) {
         ctx.fillStyle = "red";
         ctx.font = "40px Arial";
-        ctx.fillText("YOU DIED", 350, 260);
-    }
+        ctx.fillText("YOU DIED", 350, 240);
 
-    if (win) {
-        ctx.shadowColor = "yellow";
-        ctx.shadowBlur = 40;
-        ctx.fillStyle = "yellow";
-        ctx.font = "40px Arial";
-        ctx.fillText("LEVEL COMPLETED", 250, 260);
-        ctx.shadowBlur = 0;
+        ctx.font = "20px Arial";
+        ctx.fillText("Press CTRL + R to Restart", 330, 280);
     }
 }
 
@@ -282,3 +253,5 @@ function loop() {
 
 loadLevel(0);
 loop();
+
+
