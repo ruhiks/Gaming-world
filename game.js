@@ -1,8 +1,23 @@
 "use strict";
 
-/* ================= SETUP ================= */
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
+
+/* ================= LOAD IMAGES ================= */
+const bg = new Image();
+bg.src = "assets/bg.png";
+
+const wizard = new Image();
+wizard.src = "assets/wizard.png";
+
+const blockImg = new Image();
+blockImg.src = "assets/block.png";
+
+const spikeImg = new Image();
+spikeImg.src = "assets/spike.png";
+
+const castleImg = new Image();
+castleImg.src = "assets/castle.png";
 
 /* ================= PLAYER ================= */
 const player = {
@@ -36,7 +51,6 @@ window.addEventListener("keyup", e => keys[e.code] = false);
 
 /* ================= LEVELS ================= */
 const levels = [
-    // LEVEL 1 (Easy)
     {
         start: { x: 50, y: 400 },
         platforms: [
@@ -44,39 +58,31 @@ const levels = [
             { x: 300, y: 420, w: 120, h: 20 },
             { x: 600, y: 350, w: 120, h: 20 }
         ],
-        spikes: [
-            { x: 450, y: 480, w: 40, h: 20 }
-        ],
-        castle: { x: 820, y: 250, w: 80, h: 100 }
+        spikes: [{ x: 450, y: 480, w: 40, h: 20 }],
+        castle: { x: 820, y: 250, w: 100, h: 120 }
     },
 
-    // LEVEL 2 (Medium)
     {
         start: { x: 50, y: 400 },
         platforms: [
             { x: 0, y: 500, w: 200, h: 40 },
-            { x: 250, y: 420, w: 120, h: 20, moveX: true, min: 250, max: 500 },
+            { x: 250, y: 420, w: 120, h: 20, move: true, min: 250, max: 500 },
             { x: 600, y: 320, w: 120, h: 20 }
         ],
-        spikes: [
-            { x: 200, y: 500, w: 100, h: 20 }
-        ],
-        castle: { x: 820, y: 180, w: 80, h: 100 }
+        spikes: [{ x: 200, y: 500, w: 100, h: 20 }],
+        castle: { x: 820, y: 180, w: 100, h: 120 }
     },
 
-    // LEVEL 3 (Hard)
     {
         start: { x: 20, y: 450 },
         platforms: [
             { x: 0, y: 520, w: 120, h: 20 },
-            { x: 200, y: 420, w: 100, h: 20, moveX: true, min: 200, max: 450 },
+            { x: 200, y: 420, w: 100, h: 20, move: true, min: 200, max: 450 },
             { x: 500, y: 320, w: 100, h: 20 },
             { x: 700, y: 220, w: 150, h: 20 }
         ],
-        spikes: [
-            { x: 150, y: 520, w: 400, h: 20 }
-        ],
-        castle: { x: 820, y: 80, w: 80, h: 100 }
+        spikes: [{ x: 150, y: 520, w: 400, h: 20 }],
+        castle: { x: 820, y: 80, w: 100, h: 120 }
     }
 ];
 
@@ -115,7 +121,6 @@ function update() {
 
     if (gameOver || levelWin) return;
 
-    /* Movement */
     player.vx = 0;
 
     if (keys["ArrowLeft"]) player.vx = -player.speed;
@@ -132,10 +137,9 @@ function update() {
 
     player.onGround = false;
 
-    /* Platforms */
     platforms.forEach(p => {
 
-        if (p.moveX) {
+        if (p.move) {
             p.x += 2 * p.dir;
             if (p.x > p.max || p.x < p.min) p.dir *= -1;
         }
@@ -147,17 +151,12 @@ function update() {
         }
     });
 
-    /* Death: fall */
-    if (player.y > canvas.height) {
-        gameOver = true;
-    }
+    if (player.y > canvas.height) gameOver = true;
 
-    /* Death: spikes */
     spikes.forEach(s => {
         if (hit(player, s)) gameOver = true;
     });
 
-    /* Win */
     if (hit(player, castle)) {
         levelWin = true;
 
@@ -168,35 +167,62 @@ function update() {
                 levelIndex = 0;
             }
             loadLevel(levelIndex);
-        }, 1000);
+        }, 1200);
     }
 }
 
 /* ================= DRAW ================= */
 function draw() {
 
-    ctx.fillStyle = "#0b0b1a";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    /* Background */
+    if (bg.complete) {
+        ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
+    } else {
+        ctx.fillStyle = "#0b0b1a";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
 
     /* Platforms */
-    ctx.fillStyle = "#6c63ff";
-    platforms.forEach(p => ctx.fillRect(p.x, p.y, p.w, p.h));
+    platforms.forEach(p => {
+        if (blockImg.complete) {
+            ctx.drawImage(blockImg, p.x, p.y, p.w, p.h);
+        } else {
+            ctx.fillStyle = "#6c63ff";
+            ctx.fillRect(p.x, p.y, p.w, p.h);
+        }
+    });
 
     /* Spikes */
-    ctx.fillStyle = "red";
-    spikes.forEach(s => ctx.fillRect(s.x, s.y, s.w, s.h));
+    spikes.forEach(s => {
+        if (spikeImg.complete) {
+            ctx.drawImage(spikeImg, s.x, s.y, s.w, s.h);
+        } else {
+            ctx.fillStyle = "red";
+            ctx.fillRect(s.x, s.y, s.w, s.h);
+        }
+    });
 
     /* Castle */
-    ctx.fillStyle = "gold";
-    ctx.fillRect(castle.x, castle.y, castle.w, castle.h);
+    if (castleImg.complete) {
+        ctx.drawImage(castleImg, castle.x, castle.y, castle.w, castle.h);
+    } else {
+        ctx.fillStyle = "gold";
+        ctx.fillRect(castle.x, castle.y, castle.w, castle.h);
+    }
 
     /* Dragon (visual only) */
     ctx.fillStyle = "purple";
     ctx.fillRect(castle.x - 60, castle.y, 40, 40);
 
     /* Player */
-    ctx.fillStyle = "cyan";
-    ctx.fillRect(player.x, player.y, player.w, player.h);
+    if (wizard.complete) {
+        ctx.drawImage(wizard, player.x, player.y, 60, 60);
+    } else {
+        ctx.fillStyle = "cyan";
+        ctx.fillRect(player.x, player.y, player.w, player.h);
+    }
 
     /* UI */
     ctx.fillStyle = "white";
@@ -206,13 +232,13 @@ function draw() {
     if (gameOver) {
         ctx.fillStyle = "red";
         ctx.font = "40px Arial";
-        ctx.fillText("YOU DIED (Press R)", 300, 250);
+        ctx.fillText("YOU DIED (Press R)", 280, 260);
     }
 
     if (levelWin) {
         ctx.fillStyle = "yellow";
         ctx.font = "40px Arial";
-        ctx.fillText("LEVEL COMPLETED!", 260, 250);
+        ctx.fillText("LEVEL COMPLETED!", 240, 260);
     }
 }
 
@@ -226,12 +252,6 @@ function loop() {
 /* ================= START ================= */
 loadLevel(0);
 loop();
-
-
-
-
-
-
 
 
 
