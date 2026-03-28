@@ -3,6 +3,17 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
+/* ================= IMAGES ================= */
+const bg = new Image(); bg.src = "assets/bg.png";
+const wizard = new Image(); wizard.src = "assets/wizard.png";
+const block = new Image(); block.src = "assets/block.png";
+const spikeImg = new Image(); spikeImg.src = "assets/spike.png";
+const castleImg = new Image(); castleImg.src = "assets/castle.png";
+const dragonImg = new Image(); dragonImg.src = "assets/dragon.png";
+
+/* ================= AUDIO ================= */
+const deathSound = new Audio("assets/death.mp3");
+
 /* ================= PLAYER ================= */
 const player = {
     x: 50,
@@ -21,34 +32,9 @@ let level = 0;
 let gameOver = false;
 let win = false;
 
-/* ================= PARTICLES ================= */
-let particles = [];
-
-function spark(x, y, color = "gold", amount = 5) {
-    for (let i = 0; i < amount; i++) {
-        particles.push({
-            x,
-            y,
-            vx: (Math.random() - 0.5) * 4,
-            vy: (Math.random() - 0.5) * 4,
-            life: 40,
-            color
-        });
-    }
-}
-
-/* ================= DRAGON FIRE ================= */
+/* ================= FIRE ================= */
 let fireballs = [];
-
-function shootFire(x, y) {
-    fireballs.push({
-        x,
-        y,
-        w: 20,
-        h: 20,
-        vx: -5 - level, // harder each level
-    });
-}
+let fireTimer = 0;
 
 /* ================= LEVELS ================= */
 const levels = [
@@ -59,7 +45,7 @@ const levels = [
             { x: 600, y: 350, w: 120, h: 20 }
         ],
         spikes: [{ x: 450, y: 480, w: 40, h: 20 }],
-        dragon: { x: 760, y: 260, fireRate: 120 },
+        dragon: { x: 720, y: 250, fireRate: 120 },
         castle: { x: 820, y: 250, w: 100, h: 120 }
     },
     {
@@ -72,7 +58,7 @@ const levels = [
             { x: 200, y: 500, w: 100, h: 20 },
             { x: 500, y: 300, w: 40, h: 20 }
         ],
-        dragon: { x: 760, y: 200, fireRate: 90 },
+        dragon: { x: 720, y: 200, fireRate: 90 },
         castle: { x: 820, y: 180, w: 100, h: 120 }
     },
     {
@@ -82,10 +68,8 @@ const levels = [
             { x: 500, y: 320, w: 100, h: 20 },
             { x: 700, y: 220, w: 150, h: 20 }
         ],
-        spikes: [
-            { x: 150, y: 520, w: 400, h: 20 },
-        ],
-        dragon: { x: 760, y: 100, fireRate: 60 },
+        spikes: [{ x: 150, y: 520, w: 400, h: 20 }],
+        dragon: { x: 720, y: 120, fireRate: 60 },
         castle: { x: 820, y: 80, w: 100, h: 120 }
     }
 ];
@@ -94,9 +78,8 @@ let platforms = [];
 let spikes = [];
 let dragon = {};
 let castle = {};
-let fireTimer = 0;
 
-/* ================= LOAD LEVEL ================= */
+/* ================= LOAD ================= */
 function loadLevel(i) {
     const l = levels[i];
 
@@ -129,6 +112,17 @@ function hit(a, b) {
     );
 }
 
+/* ================= FIRE ================= */
+function shootFire() {
+    fireballs.push({
+        x: dragon.x,
+        y: dragon.y + 30,
+        w: 25,
+        h: 25,
+        vx: -6 - level
+    });
+}
+
 /* ================= UPDATE ================= */
 function update() {
 
@@ -140,7 +134,6 @@ function update() {
 
     if (keys.Space && player.onGround) {
         player.vy = -player.jump;
-        spark(player.x, player.y, "cyan", 10);
     }
 
     player.vy += 0.8;
@@ -162,97 +155,102 @@ function update() {
         }
     });
 
-    /* Fire system */
+    /* FIRE SYSTEM */
     fireTimer++;
     if (fireTimer > dragon.fireRate) {
-        shootFire(dragon.x, dragon.y + 20);
+        shootFire();
         fireTimer = 0;
     }
 
     fireballs.forEach(f => {
         f.x += f.vx;
-        if (hit(player, f)) gameOver = true;
+        if (hit(player, f)) {
+            if (!gameOver) deathSound.play();
+            gameOver = true;
+        }
     });
 
-    /* Death */
-    if (player.y > canvas.height) gameOver = true;
-    spikes.forEach(s => { if (hit(player, s)) gameOver = true; });
+    /* DEATH */
+    if (player.y > canvas.height) {
+        if (!gameOver) deathSound.play();
+        gameOver = true;
+    }
+
+    spikes.forEach(s => {
+        if (hit(player, s)) {
+            if (!gameOver) deathSound.play();
+            gameOver = true;
+        }
+    });
 
     /* WIN */
     if (hit(player, castle)) {
         win = true;
 
-        // wizard glow burst
-        for (let i = 0; i < 50; i++) {
-            spark(player.x + 25, player.y + 25, "yellow", 1);
-        }
-
         setTimeout(() => {
             level++;
             if (level >= levels.length) {
-                alert("🏆 You completed all levels!");
+                alert("🏆 Completed!");
                 level = 0;
             }
             loadLevel(level);
         }, 1500);
     }
-
-    /* particles */
-    particles.forEach(p => {
-        p.x += p.vx;
-        p.y += p.vy;
-        p.life--;
-    });
-
-    particles = particles.filter(p => p.life > 0);
-
-    /* castle aura */
-    spark(castle.x + 50, castle.y + 20, "gold", 2);
 }
 
 /* ================= DRAW ================= */
 function draw() {
 
-    ctx.fillStyle = "black";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    /* platforms */
-    ctx.fillStyle = "#444";
-    platforms.forEach(p => ctx.fillRect(p.x, p.y, p.w, p.h));
+    /* BG */
+    if (bg.complete)
+        ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
 
-    /* spikes */
-    ctx.fillStyle = "red";
-    spikes.forEach(s => ctx.fillRect(s.x, s.y, s.w, s.h));
+    /* Platforms */
+    platforms.forEach(p => ctx.drawImage(block, p.x, p.y, p.w, p.h));
 
-    /* dragon */
-    ctx.fillStyle = "purple";
-    ctx.fillRect(dragon.x, dragon.y, 40, 40);
+    /* Spikes */
+    spikes.forEach(s => ctx.drawImage(spikeImg, s.x, s.y, s.w, s.h));
 
-    /* fireballs */
-    ctx.fillStyle = "orange";
-    fireballs.forEach(f => ctx.fillRect(f.x, f.y, f.w, f.h));
-
-    /* castle glow */
-    ctx.shadowColor = "gold";
-    ctx.shadowBlur = 40;
-    ctx.fillStyle = "#888";
-    ctx.fillRect(castle.x, castle.y, castle.w, castle.h);
+    /* 🔥 DRAGON (REAL IMAGE + GLOW) */
+    ctx.shadowColor = "orange";
+    ctx.shadowBlur = 25;
+    ctx.drawImage(dragonImg, dragon.x, dragon.y, 80, 80);
     ctx.shadowBlur = 0;
 
-    /* player glow */
+    /* 🔥 FIRE */
+    ctx.fillStyle = "orange";
+    fireballs.forEach(f => {
+        ctx.shadowColor = "red";
+        ctx.shadowBlur = 20;
+        ctx.fillRect(f.x, f.y, f.w, f.h);
+        ctx.shadowBlur = 0;
+    });
+
+    /* ✨ CASTLE LIGHT (REAL AURA EFFECT) */
+    let gradient = ctx.createRadialGradient(
+        castle.x + 50,
+        castle.y + 60,
+        10,
+        castle.x + 50,
+        castle.y + 60,
+        120
+    );
+
+    gradient.addColorStop(0, "rgba(255,255,150,0.9)");
+    gradient.addColorStop(1, "rgba(255,255,150,0)");
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(castle.x - 50, castle.y - 50, 200, 200);
+
+    ctx.drawImage(castleImg, castle.x, castle.y, castle.w, castle.h);
+
+    /* PLAYER */
     ctx.shadowColor = "cyan";
     ctx.shadowBlur = 20;
-    ctx.fillStyle = "white";
-    ctx.fillRect(player.x, player.y, player.w, player.h);
+    ctx.drawImage(wizard, player.x, player.y, 60, 60);
     ctx.shadowBlur = 0;
-
-    /* particles */
-    particles.forEach(p => {
-        ctx.fillStyle = p.color;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
-        ctx.fill();
-    });
 
     /* UI */
     ctx.fillStyle = "white";
@@ -262,12 +260,12 @@ function draw() {
     if (gameOver) {
         ctx.fillStyle = "red";
         ctx.font = "40px Arial";
-        ctx.fillText("YOU DIED - Refresh", 250, 260);
+        ctx.fillText("YOU DIED", 350, 260);
     }
 
     if (win) {
         ctx.shadowColor = "yellow";
-        ctx.shadowBlur = 30;
+        ctx.shadowBlur = 40;
         ctx.fillStyle = "yellow";
         ctx.font = "40px Arial";
         ctx.fillText("LEVEL COMPLETED", 250, 260);
@@ -284,327 +282,3 @@ function loop() {
 
 loadLevel(0);
 loop();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
