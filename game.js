@@ -18,10 +18,13 @@ let levelWin   = false;
 let finalWin   = false;
 let winTimer   = 0;
 let bgX        = 0;
-let textScale  = 0;
 let frameCount = 0;
 let lives      = MAX_LIVES;
 let isDead     = false;
+/* Castle Entering Animation */
+let isEnteringCastle = false;
+let enterTimer       = 0;
+let castleDoorOpen   = 0; // 0.0 to 1.0 (width of open door)
 /* Fade-to-black transition */
 let fadeAlpha    = 0;
 let fadingOut    = false;
@@ -81,7 +84,7 @@ function spawnParticles(x, y, color, count=10, speed=2, life=40, size=3) {
   }
 }
 function spark(x,y)      { spawnParticles(x,y,"gold",8,5,50,4); }
-function magicSpark(x,y) { spawnParticles(x,y,"violet",3,2,70,3); }
+function magicSpark(x,y) { spawnParticles(x,y,"cyan",3,2,60,3); }
 function dragonBreath(x,y) {
   for (let i=0;i<10;i++) {
     const spread=(Math.random()-0.5)*1.4;
@@ -96,17 +99,6 @@ function dragonBreath(x,y) {
 }
 function lavaParticle(x,y) {
   spawnParticles(x, y, "#ff4500", 2, 2, 30, 3);
-}
-function winRing(cx,cy) {
-  for (let i=0;i<30;i++) {
-    const angle=(i/30)*Math.PI*2, spd=5+Math.random()*4;
-    particles.push({
-      x:cx, y:cy,
-      vx:Math.cos(angle)*spd, vy:Math.sin(angle)*spd,
-      life:90, maxLife:90,
-      color:`hsl(${Math.random()*60+20},100%,60%)`, size:5+Math.random()*3
-    });
-  }
 }
 /* ================= FIREWORKS ================= */
 function spawnFirework(x,y) {
@@ -129,6 +121,7 @@ let blocks=[], spikes=[], castle={}, fireballs=[];
 let hasLava = false; 
 const dragonObj = {
   x:0, y:0, baseY:0, w:120, h:100,
+  minX:0, maxX:0, moveSpeed:0, moveDir:-1,
   dir:-1, attackTimer:0, active:false,
   fireRate:120 
 };
@@ -167,7 +160,7 @@ const levels = [
     ],
     spikes:[{x:420,y:470,w:40,h:30}],
     castle:{x:820,y:170,w:130,h:160},
-    dragon:{x:720,y:240,active:true,fireRate:120},
+    dragon:{x:720,y:240,active:true,fireRate:120, minX:650, maxX:750, moveSpeed: 1.5},
     hasLava:false
   },
   /* === LEVEL 2 === */
@@ -184,8 +177,8 @@ const levels = [
       {x:500,y:500,w:100,h:30}
     ],
     castle:{x:820,y:100,w:130,h:160},
-    dragon:{x:730,y:180,active:true,fireRate:120},
-    hasLava:false
+    dragon:{x:730,y:180,active:true,fireRate:110, minX:600, maxX:750, moveSpeed: 2.5},
+    hasLava:true
   },
   /* === LEVEL 3 === */
   {
@@ -199,40 +192,30 @@ const levels = [
     ],
     spikes:[{x:150,y:520,w:450,h:30}],
     castle:{x:820,y:40,w:130,h:160},
-    dragon:{x:730,y:100,active:true,fireRate:120},
-    hasLava:false
+    dragon:{x:730,y:100,active:true,fireRate:90, minX:630, maxX:800, moveSpeed: 3.5},
+    hasLava:true
   },
   /* === LEVEL 4 — THE INFERNO DUNGEON === */
   {
-    start:{x:20,y:350}, // FIX: spawns above platform correctly so no early clipping
+    start:{x:20,y:350},
     blocks:[
-      // Starting island
       {x:0,  y:460,w:110,h:30, type:'static'},
-      // First gap
       {x:180,y:400,w:90, h:25, type:'moving',vx:3,minX:150,maxX:330},
-      // Tiny static ledge
       {x:380,y:340,w:70, h:25, type:'static'},
-      // Spike-top wide platform
       {x:490,y:280,w:130,h:25, type:'static'},
-      // Fast vertical bouncer
       {x:670,y:300,w:80, h:25, type:'moving',vy:4,minY:180,maxY:370},
-      // Narrow upper ledge with spike
       {x:780,y:200,w:70, h:25, type:'static'},
-      // Final approach
       {x:650,y:120,w:100,h:25, type:'moving',vx:4,minX:550,maxX:760},
-      // Castle platform
       {x:820,y:80, w:140,h:30, type:'static'}
     ],
     spikes:[
-      // Spike cluster
       {x:510,y:252,w:30,h:28},
       {x:560,y:252,w:30,h:28},
-      // Floor cluster
       {x:290,y:432,w:60,h:28},
       {x:430,y:312,w:40,h:28},
     ],
     castle:{x:820,y:-80,w:140,h:160},
-    dragon:{x:700,y:40, active:true, fireRate:80}, 
+    dragon:{x:700,y:40, active:true, fireRate:80, minX:550, maxX:820, moveSpeed: 4}, 
     hasLava:true 
   }
 ];
@@ -247,26 +230,30 @@ function loadLevel(i) {
     dragonObj.x=l.dragon.x; dragonObj.y=l.dragon.y;
     dragonObj.baseY=l.dragon.y; dragonObj.active=l.dragon.active;
     dragonObj.fireRate=l.dragon.fireRate || 120;
+    dragonObj.minX=l.dragon.minX || l.dragon.x;
+    dragonObj.maxX=l.dragon.maxX || l.dragon.x;
+    dragonObj.moveSpeed=l.dragon.moveSpeed || 0;
+    dragonObj.moveDir=-1;
     dragonObj.attackTimer=0;
   } else { dragonObj.active=false; }
   fireballs=[]; particles=[]; playerTrails=[]; fireworks=[];
   player.x=l.start.x; player.y=l.start.y; player.vx=0; player.vy=0;
-  gameOver=false; levelWin=false; winTimer=0; textScale=0;
+  
+  gameOver=false; levelWin=false; winTimer=0; 
+  isEnteringCastle=false; enterTimer=0; castleDoorOpen=0;
   isDead=false;
 }
 function die() {
-  if (isDead) return; // Prevent multiple deaths during fade
+  if (isDead) return;
   isDead = true; 
   lives--;
   deathSound.play().catch(()=>{});
   triggerShake();
   
   if (lives<=0) {
-    // No lives left
     lives=MAX_LIVES;
     gameOver=true;
   } else {
-    // Respawn at level start after a fade out
     startFade(() => { loadLevel(levelIndex); });
   }
 }
@@ -299,11 +286,10 @@ function update() {
   if (bgX   <= -canvas.width) bgX=0;
   if (para1X<= -canvas.width) para1X=0;
   if (para2X<= -canvas.width) para2X=0;
-  /* Shake decay */
   if (shakeTime>0) {
     shakeTime--; shakeX=(Math.random()-0.5)*7; shakeY=(Math.random()-0.5)*7;
   } else { shakeX=0; shakeY=0; }
-  /* Fade logic */
+  /* Fade transition logic */
   if (fadingOut) {
     fadeAlpha+=0.05;
     if (fadeAlpha>=1) { fadeAlpha=1; fadingOut=false; fadingIn=true; if(fadeCallback){fadeCallback(); fadeCallback=null;} }
@@ -314,21 +300,15 @@ function update() {
   }
   /* Rune drift */
   runes.forEach(r => { r.y-=r.speed; if(r.y<-30){r.y=canvas.height+20; r.x=Math.random()*canvas.width;} });
+  /* Castle Door ambient sparkles */
+  if (!finalWin && frameCount % 6 === 0) {
+     spawnParticles(castle.x + 65, castle.y + 110, "cyan", 1, 1, 40, 3);
+     spawnParticles(castle.x + 65, castle.y + 110, "gold", 1, 1, 40, 2);
+  }
   if (gameOver || finalWin) {
     if (finalWin && frameCount%35===0)
       spawnFirework(150+Math.random()*(canvas.width-300), 50+Math.random()*(canvas.height-150));
     updateFireworks(); updateParticles(); return;
-  }
-  /* WIN */
-  if (levelWin) {
-    winTimer++;
-    spark(player.x+30, player.y); magicSpark(castle.x+70, castle.y+80);
-    if (textScale<1.3) textScale+=0.05;
-    if (winTimer===1) winRing(canvas.width/2, canvas.height/2);
-    if (dragonObj.active && frameCount%8===0) dragonBreath(dragonObj.x, dragonObj.y+40);
-    updateParticles();
-    if (winTimer>200) { levelWin=false; levelIndex++; startFade(()=>loadLevel(levelIndex)); }
-    return;
   }
   /* Moving platforms */
   blocks.forEach(b => {
@@ -341,34 +321,65 @@ function update() {
   if (hasLava && frameCount%6===0) {
     lavaParticle(Math.random()*canvas.width, canvas.height-20);
   }
-  /* Player trail */
-  if (Math.abs(player.vx)>0.5 || Math.abs(player.vy)>1)
-    playerTrails.push({x:player.x, y:player.y, life:10, maxLife:10});
-  playerTrails = playerTrails.filter(t=>{t.life--;return t.life>0;});
-  /* Movement */
+  /* Level Complete Timer */
+  if (levelWin) {
+    winTimer++;
+    if (winTimer>120) { levelWin=false; levelIndex++; startFade(()=>loadLevel(levelIndex)); }
+    updateParticles();
+    return;
+  }
+  /* Player Movement & Entering Castle Logic */
   player.vx=0;
-  if (keys.ArrowLeft)  { player.vx=-SPEED; player.facing=false; }
-  if (keys.ArrowRight) { player.vx=SPEED;  player.facing=true;  }
-  if (keys.Space && player.onGround && !isDead) player.vy=-JUMP;
-  if (keys.ArrowDown)  player.vy+=FAST_FALL;
-  if (!isDead) { // Freezes controls slightly upon death transition
+  if (keys.ArrowLeft  && !isEnteringCastle) { player.vx=-SPEED; player.facing=false; }
+  if (keys.ArrowRight && !isEnteringCastle) { player.vx=SPEED;  player.facing=true;  }
+  if (keys.Space && player.onGround && !isDead && !fadingOut && !isEnteringCastle) player.vy=-JUMP;
+  if (keys.ArrowDown  && !isEnteringCastle) player.vy+=FAST_FALL;
+  if (isEnteringCastle) {
+      // Lerp player towards center of the doorway
+      const doorCenterX = castle.x + castle.w/2 - player.w/2;
+      const doorFloorY  = castle.y + castle.h - player.h - 15;
+      player.x += (doorCenterX - player.x) * 0.12;
+      player.y += (doorFloorY - player.y) * 0.12;
+      enterTimer++;
+      castleDoorOpen = Math.min(1, enterTimer / 30); // Door opens over 30 frames
+      
+      if (enterTimer > 60) {
+          isEnteringCastle = false;
+          levelWin = true; // Complete entry animation, trigger level finish
+          winTimer = 0;
+      }
+      
+  } else if (!isDead && !fadingOut) {
       player.vy+=GRAVITY;
       player.x+=player.vx; player.y+=player.vy;
   } else {
       player.vy+=GRAVITY;
-      player.y+=player.vy; // Let them fall naturally to their demise
+      player.y+=player.vy; // Let them fall naturally into the void
   }
   
-  player.onGround=false;
-  blocks.forEach(b=>{
-    if (hit(player,b) && player.vy>=0 && player.y+player.h-player.vy<=b.y+(b.vy||0)+5){
-      player.y=b.y-player.h; player.vy=0; player.onGround=true;
-      if (b.type==='moving'&&b.vx) player.x+=b.vx*b.dir;
-    }
-  });
-  /* Dragon */
+  if (!isEnteringCastle) {
+      player.onGround=false;
+      blocks.forEach(b=>{
+        if (hit(player,b) && player.vy>=0 && player.y+player.h-player.vy<=b.y+(b.vy||0)+5){
+          player.y=b.y-player.h; player.vy=0; player.onGround=true;
+          if (b.type==='moving'&&b.vx) player.x+=b.vx*b.dir;
+        }
+      });
+  }
+  /* Player trail when moving fast */
+  if (!isEnteringCastle && (Math.abs(player.vx)>0.5 || Math.abs(player.vy)>1)) {
+    playerTrails.push({x:player.x, y:player.y, life:10, maxLife:10});
+  }
+  playerTrails = playerTrails.filter(t=>{t.life--;return t.life>0;});
+  /* Dragon Patrolling & Hover */
   if (dragonObj.active) {
     dragonObj.y=dragonObj.baseY+Math.sin(frameCount*0.04)*10;
+    if (dragonObj.minX !== dragonObj.maxX) {
+       dragonObj.x += dragonObj.moveSpeed * dragonObj.moveDir;
+       if (dragonObj.x <= dragonObj.minX || dragonObj.x >= dragonObj.maxX) {
+           dragonObj.moveDir *= -1; 
+       }
+    }
     dragonObj.attackTimer++;
     if (dragonObj.attackTimer>dragonObj.fireRate) {
       const dir=(player.x<dragonObj.x)?-1:1;
@@ -382,13 +393,16 @@ function update() {
     fireballs[i].update();
     if (fireballs[i].life<=0||fireballs[i].x<0||fireballs[i].x>canvas.width) fireballs.splice(i,1);
   }
-  /* Death checks */
-  if (!isDead && !levelWin && !gameOver) {
+  /* Collision fixes - Disable ALL collision checks when transitioning or dying */
+  if (!isDead && !levelWin && !gameOver && !fadingOut && !fadingIn && !isEnteringCastle) {
       if (player.y>FALL_DEATH_Y) die();
       else if (hasLava && player.y>canvas.height-30) die();
       else {
           spikes.forEach(s=>{ if(!isDead && hit(player,s)) die(); });
-          if (!isDead && hit(player,castle)) levelWin=true;
+          if (!isDead && hit(player,castle)) {
+              isEnteringCastle = true; 
+              enterTimer = 0;
+          }
       }
   }
   updateParticles();
@@ -403,17 +417,14 @@ function updateFireworks() {
 }
 /* ================= DRAW: 3D BLOCK ================= */
 function draw3DBlock(b) {
-  const D=16; // extrusion depth
+  const D=16; 
   const bx=b.x,by=b.y,bw=b.w,bh=b.h;
-  /* Solid drop shadow base (prevents graphic glitch on transparent fills) */
   ctx.save();
   ctx.shadowColor="rgba(0,0,0,0.8)"; ctx.shadowBlur=14; ctx.shadowOffsetY=8;
   ctx.fillStyle="black";
   ctx.fillRect(bx,by,bw,bh);
   ctx.restore();
-  /* Top face (texture) */
   ctx.drawImage(blockImg, bx, by, bw, bh);
-  /* Bottom extrusion */
   const bottomGrad=ctx.createLinearGradient(0, by+bh, 0, by+bh+D);
   bottomGrad.addColorStop(0,"rgba(0,0,0,0.85)");
   bottomGrad.addColorStop(1,"rgba(0,0,0,0.45)");
@@ -424,7 +435,6 @@ function draw3DBlock(b) {
   ctx.lineTo(bx+bw+D, by+bh+D);
   ctx.lineTo(bx+bw, by+bh);
   ctx.closePath(); ctx.fill();
-  /* Right face extrusion */
   const rightGrad=ctx.createLinearGradient(bx+bw, 0, bx+bw+D, 0);
   rightGrad.addColorStop(0,"rgba(0,0,0,0.7)");
   rightGrad.addColorStop(1,"rgba(0,0,0,0.3)");
@@ -435,13 +445,10 @@ function draw3DBlock(b) {
   ctx.lineTo(bx+bw+D, by+bh+D);
   ctx.lineTo(bx+bw,   by+bh);
   ctx.closePath(); ctx.fill();
-  /* Ambient occlusion — soft dark inner edge at top */
   ctx.fillStyle="rgba(0,0,0,0.35)";
   ctx.fillRect(bx, by, bw, 6);
-  /* Top highlight */
   ctx.strokeStyle="rgba(255,255,255,0.4)"; ctx.lineWidth=1.5;
   ctx.beginPath(); ctx.moveTo(bx,by); ctx.lineTo(bx+bw,by); ctx.stroke();
-  /* Moving platform: cyan pulse glow */
   if (b.type==='moving') {
     const pulse=0.5+0.5*Math.sin(frameCount*0.1);
     ctx.save();
@@ -456,7 +463,6 @@ function drawLava() {
   const t=frameCount*0.04;
   const lavaY=canvas.height-28;
   const h=40;
-  /* Animated lava surface */
   const grad=ctx.createLinearGradient(0,lavaY,0,canvas.height);
   grad.addColorStop(0,"#ff4500"); grad.addColorStop(0.4,"#cc2200"); grad.addColorStop(1,"#550000");
   ctx.fillStyle=grad;
@@ -464,7 +470,6 @@ function drawLava() {
   for (let x=0;x<=canvas.width;x+=20)
     ctx.lineTo(x, lavaY + Math.sin(t+x*0.04)*6);
   ctx.lineTo(canvas.width,canvas.height); ctx.closePath(); ctx.fill();
-  /* Glow on top of lava */
   const glow=ctx.createLinearGradient(0,lavaY-20,0,lavaY+h);
   glow.addColorStop(0,"rgba(255,100,0,0.0)");
   glow.addColorStop(0.5,"rgba(255,80,0,0.35)");
@@ -495,7 +500,7 @@ function draw() {
   ctx.drawImage(bg, para2X, 0, canvas.width, canvas.height);
   ctx.drawImage(bg, para2X+canvas.width, 0, canvas.width, canvas.height);
   ctx.globalAlpha=1;
-  /* Depth fog (darken bottom half slightly for depth feel) */
+  /* Depth fog */
   const fog=ctx.createLinearGradient(0,0,0,canvas.height);
   fog.addColorStop(0,"rgba(0,0,0,0)");
   fog.addColorStop(1,"rgba(0,0,0,0.35)");
@@ -520,7 +525,7 @@ function draw() {
     }
     ctx.restore();
   }
-  /* Lava (Level 4) */
+  /* Lava */
   if (hasLava) drawLava();
   /* 3D Platforms */
   blocks.forEach(b=>draw3DBlock(b));
@@ -537,11 +542,33 @@ function draw() {
   ctx.shadowColor="gold"; ctx.shadowBlur=30+25*gp;
   ctx.drawImage(castleImg,castle.x,castle.y,castle.w,castle.h);
   ctx.restore();
+  /* Dark Doorway Graphic for Entrance Animation */
+  if (isEnteringCastle || levelWin || fadingOut) {
+      let openRatio = castleDoorOpen;
+      if (levelWin || fadingOut) openRatio = 1;
+      
+      ctx.save();
+      ctx.fillStyle = "black";
+      ctx.shadowColor = "black"; ctx.shadowBlur = 10;
+      
+      const doorW = 44 * openRatio; 
+      const doorH = 75; 
+      const doorX = castle.x + (castle.w/2) - (doorW/2);
+      const doorY = castle.y + castle.h - doorH - 4; // slight off bottom
+      ctx.fillRect(doorX, doorY, doorW, doorH);
+      ctx.restore();
+  }
   /* Dragon */
   if (dragonObj.active) {
     ctx.save();
     ctx.shadowColor="#9b00ff"; ctx.shadowBlur=28;
-    ctx.drawImage(dragonImg,dragonObj.x,dragonObj.y,dragonObj.w,dragonObj.h);
+    if (dragonObj.moveDir > 0) {
+        ctx.translate(dragonObj.x + dragonObj.w, dragonObj.y);
+        ctx.scale(-1, 1);
+        ctx.drawImage(dragonImg, 0, 0, dragonObj.w, dragonObj.h);
+    } else {
+        ctx.drawImage(dragonImg,dragonObj.x,dragonObj.y,dragonObj.w,dragonObj.h);
+    }
     ctx.restore();
   }
   /* Fireballs */
@@ -555,11 +582,22 @@ function draw() {
   });
   /* Player */
   if (!gameOver && !finalWin) {
-    const bobY=player.onGround?Math.sin(frameCount*0.12)*2:0;
-    ctx.save();
-    ctx.shadowColor="#a0f0ff"; ctx.shadowBlur=22;
-    ctx.drawImage(wizard,player.x,player.y+bobY,80,80);
-    ctx.restore();
+    let alpha = 1;
+    if (isEnteringCastle) {
+        // Player enters door and fades into darkness
+        alpha = Math.max(0, 1 - Math.max(0, enterTimer - 15) / 30);
+    } else if (levelWin || fadingOut) {
+        alpha = 0; // Fully inside the castle
+    }
+    
+    if (alpha > 0) {
+        const bobY = (player.onGround && !isEnteringCastle) ? Math.sin(frameCount*0.12)*2:0;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.shadowColor="#a0f0ff"; ctx.shadowBlur=22;
+        ctx.drawImage(wizard,player.x,player.y+bobY,80,80);
+        ctx.restore();
+    }
   }
   /* Particles */
   particles.forEach(p=>{
@@ -596,27 +634,25 @@ function draw() {
     ctx.fillText("GAME OVER",canvas.width/2,canvas.height/2-15);
     ctx.shadowBlur=0;
     ctx.fillStyle="white"; ctx.font="bold 24px Arial";
-    
-    // Check if the user beat all levels - rare, but if they die alongside the final explosion context? 
-    // Usually handled correctly.
     ctx.fillText("You ran out of lives!",canvas.width/2,canvas.height/2+35);
-    
     ctx.fillStyle="#ccc"; ctx.font="20px Arial";
     ctx.fillText("Press R to Restart",canvas.width/2,canvas.height/2+75);
     ctx.restore();
   }
-  /* Level Complete */
-  if (levelWin) {
-    ctx.save(); ctx.textAlign="center";
-    ctx.translate(canvas.width/2, canvas.height/2);
-    ctx.scale(textScale,textScale);
-    const ring=0.5+0.5*Math.sin(frameCount*0.2);
-    ctx.shadowColor=`hsl(${frameCount*4%360},100%,60%)`; ctx.shadowBlur=44+20*ring;
-    ctx.fillStyle="#ffd700"; ctx.font="bold 54px serif";
-    ctx.fillText("LEVEL COMPLETED!",0,0);
-    ctx.shadowBlur=10; ctx.shadowColor="white";
-    ctx.fillStyle="#fff8c0"; ctx.font="bold 54px serif";
-    ctx.fillText("LEVEL COMPLETED!",0,0);
+  /* Level Complete (Clean, simplified iteration) */
+  if (levelWin && !finalWin) {
+    ctx.save(); 
+    ctx.textAlign="center";
+    // Fade in text up to 1 over first 30 frames of the win phase
+    const fade = Math.min(1, winTimer / 30);
+    ctx.globalAlpha = fade;
+    
+    ctx.shadowColor="rgba(0,0,0,0.8)"; 
+    ctx.shadowBlur=8; 
+    ctx.shadowOffsetY=4;
+    ctx.fillStyle="#ffd700"; 
+    ctx.font="bold 54px Arial";
+    ctx.fillText("LEVEL COMPLETED!", canvas.width/2, canvas.height/2);
     ctx.restore();
   }
   /* Final Win */
