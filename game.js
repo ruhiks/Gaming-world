@@ -1,3 +1,4 @@
+
 "use strict";
 document.addEventListener("DOMContentLoaded", () => {
 /* ================= CANVAS ================= */
@@ -209,8 +210,6 @@ const levels = [
       {x:820,y:80, w:140,h:30, type:'static'}
     ],
     spikes:[
-      {x:510,y:252,w:30,h:28},
-      {x:560,y:252,w:30,h:28},
       {x:290,y:432,w:60,h:28},
       {x:430,y:312,w:40,h:28},
     ],
@@ -691,3 +690,4 @@ function loop() { update(); draw(); requestAnimationFrame(loop); }
 loadLevel(0);
 loop();
 });
+
