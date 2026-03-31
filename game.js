@@ -753,7 +753,7 @@ function draw() {
     ctx.fillText("GAME OVER",canvas.width/2,canvas.height/2-15);
     ctx.shadowBlur=0;
     ctx.fillStyle="white"; ctx.font="bold 24px Arial";
-    ctx.fillText("You rand out of lives!",canvas.width/2,canvas.height/2+35);
+    ctx.fillText("You Ran out of Lives!",canvas.width/2,canvas.height/2+35);
     ctx.fillStyle="#ccc"; ctx.font="20px Arial";
     ctx.fillText("Press R to Restart",canvas.width/2,canvas.height/2+75);
     ctx.restore();
