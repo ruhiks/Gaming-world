@@ -27,11 +27,7 @@ You can deploy this game using:
 GitHub Pages
 Netlify
 Vercel
-🎯 Future Improvements
-Add boss battles and new enemy types
-Introduce power-ups and upgrades
-Add sound effects and background music
-Implement score tracking and leaderboard
+
 📜 License
 
 This project is open-source and available under the MIT License.
