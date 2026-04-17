@@ -311,6 +311,26 @@ window.addEventListener("keydown", e => {
   }
 });
 window.addEventListener("keyup", e => keys[e.code]=false);
+
+/* ================= MOBILE TOUCH LOGIC ================= */
+if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+    const mobileUI = document.getElementById("mobileUI");
+    if (mobileUI) mobileUI.style.display = "flex";
+}
+const bindBtn = (id, code) => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    const press = (e) => { if(e.cancelable) e.preventDefault(); keys[code] = true; };
+    const release = (e) => { if(e.cancelable) e.preventDefault(); keys[code] = false; };
+    btn.addEventListener("touchstart", press, {passive: false});
+    btn.addEventListener("touchend", release);
+    btn.addEventListener("touchcancel", release);
+};
+bindBtn("btn-left", "ArrowLeft");
+bindBtn("btn-right", "ArrowRight");
+bindBtn("btn-jump", "Space");
+bindBtn("btn-shoot", "KeyZ");
+
 /* ================= COLLISION ================= */
 const hit=(a,b)=>(
   a.x<b.x+b.w && a.x+a.w>b.x &&
@@ -809,3 +829,4 @@ function loop() { update(); draw(); requestAnimationFrame(loop); }
 loadLevel(0);
 loop();
 });
+
