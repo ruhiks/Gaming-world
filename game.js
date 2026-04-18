@@ -68,7 +68,11 @@ let para1X = 0, para2X = 0;
 const bgm       = new Audio("assets/music.mp3");
 bgm.loop = true;
 const deathSound = new Audio("assets/death.mp3");
+// Desktop Audio
 window.addEventListener("keydown", () => bgm.play().catch(()=>{}), { once:true });
+// Mobile Audio
+window.addEventListener("touchstart", () => bgm.play().catch(()=>{}), { once:true });
+
 /* ================= PLAYER ================= */
 const player = {
   x:0, y:0, w:60, h:60,
@@ -829,4 +833,3 @@ function loop() { update(); draw(); requestAnimationFrame(loop); }
 loadLevel(0);
 loop();
 });
-
