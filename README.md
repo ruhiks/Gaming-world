@@ -16,7 +16,7 @@ In this game, you control a wizard who must survive increasingly difficult dunge
 🕹️ Controls
 Arrow Keys / WASD – Move the wizard
 Spacebar / Tap – Use abilities or interact
-🚀 Tech Stack
+>>Tech Stack
 HTML5
 CSS3
 JavaScript (Canvas-based rendering)
