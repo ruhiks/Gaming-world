@@ -1,0 +1,12 @@
+﻿# Windows system files
+desktop.ini
+Default.rdp
+Thumbs.db
+
+# Documents system folders
+My Music/
+My Pictures/
+My Videos/
+
+# Other
+afterSentDocuments/
