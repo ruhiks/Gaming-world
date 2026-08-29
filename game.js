@@ -18,6 +18,11 @@ const CLOUD_SPEED  = 0.4;
 const MAX_LIVES    = 3;
 const MAX_HEALTH   = 3; // 3 Hearts
 
+/* ================= PHASE 2A: PLATFORMING FEEL ================= */
+const COYOTE_TIME         = 6;   // ~100ms at 60 Hz — frames after leaving ground where jump is still allowed
+const JUMP_BUFFER_TIME    = 6;   // ~100ms at 60 Hz — frames before landing where a jump press is remembered
+const JUMP_CUT_MULTIPLIER = 0.4; // multiplier applied to upward vy when jump key released early (tap = shorter hop)
+
 /* ================= HITBOX CONFIGURATION ================= */
 const PLAYER_CONFIG = {
   w: 48,             // Accurate collision width (tight to body)
@@ -216,7 +221,12 @@ const player = {
   vy: 0,
   onGround: false,
   facing: true,
-  standingPlatform: null
+  standingPlatform: null,
+  /* Phase 2A feel state */
+  coyoteTimer: 0,    // counts down after leaving ground — allows late jumps
+  jumpBuffer:  0,    // counts down after Space pressed in air — fires on next landing
+  jumpHeld:    false, // true while jump key is held during the upward arc
+  wasJumping:  false  // previous-frame Space state for rising-edge detection
 };
 
 /* ================= PARTICLES ================= */
@@ -410,6 +420,11 @@ function loadLevel(i) {
   player.x=l.start.x; player.y=l.start.y; player.vx=0; player.vy=0;
   player.standingPlatform = null;
   player.onGround = false;
+  /* Phase 2A: reset feel state */
+  player.coyoteTimer = 0;
+  player.jumpBuffer  = 0;
+  player.jumpHeld    = false;
+  player.wasJumping  = false;
   
   hp = MAX_HEALTH;
   invincibilityTimer = 0;
@@ -639,11 +654,42 @@ function update() {
       player.vx = 0;
       if (keys.ArrowLeft)  { player.vx = -SPEED; player.facing = false; }
       if (keys.ArrowRight) { player.vx = SPEED;  player.facing = true;  }
-      if (keys.Space && player.onGround && !isDead && !fadingOut) {
-        player.vy = -JUMP;
-        player.onGround = false;
-        player.standingPlatform = null;
+
+      /* --- Rising-edge jump detection (prevents held-key repeat) --- */
+      const jumpPressed = keys.Space && !player.wasJumping;
+      const jumpHeldNow = !!keys.Space;
+      player.wasJumping = jumpHeldNow;
+
+      /* --- Jump buffer: remember a press made in the air --- */
+      if (jumpPressed) player.jumpBuffer = JUMP_BUFFER_TIME;
+      if (player.jumpBuffer > 0) player.jumpBuffer--;
+
+      /* --- Coyote time: grace period after walking off a ledge --- */
+      if (player.onGround) {
+        player.coyoteTimer = COYOTE_TIME; // refresh while grounded
+      } else if (player.coyoteTimer > 0) {
+        player.coyoteTimer--;             // count down in the air
       }
+
+      /* --- Perform jump when buffer is active AND jump window is open --- */
+      const canJump = player.coyoteTimer > 0 && !isDead && !fadingOut;
+      if (player.jumpBuffer > 0 && canJump) {
+        player.vy             = -JUMP;
+        player.onGround       = false;
+        player.standingPlatform = null;
+        player.coyoteTimer    = 0; // consume coyote window — prevents double jump
+        player.jumpBuffer     = 0; // consume buffer   — prevents repeated auto-jump
+        player.jumpHeld       = true;
+        playSynthTone(520, 260, 0.12, "sine");
+      }
+
+      /* --- Variable jump height: cut upward velocity on early key release --- */
+      if (!jumpHeldNow && player.jumpHeld && player.vy < 0) {
+        player.vy      *= JUMP_CUT_MULTIPLIER;
+        player.jumpHeld = false;
+      }
+      if (!jumpHeldNow) player.jumpHeld = false;
+
       if (keys.ArrowDown) player.vy += FAST_FALL;
   }
 
