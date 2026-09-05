@@ -23,6 +23,13 @@ const COYOTE_TIME         = 6;   // ~100ms at 60 Hz — frames after leaving gro
 const JUMP_BUFFER_TIME    = 6;   // ~100ms at 60 Hz — frames before landing where a jump press is remembered
 const JUMP_CUT_MULTIPLIER = 0.4; // multiplier applied to upward vy when jump key released early (tap = shorter hop)
 
+/* ================= PHASE 2B: COLLISION TYPES ================= */
+// Set block.collision in level data to control collision behavior:
+//   'one-way' — top surface only; player can jump up through it (default for all existing platforms)
+//   'solid'   — 4-directional; stops player on top, bottom, left, and right (for walls / enclosed rooms)
+const COLLISION_ONE_WAY = 'one-way';
+const COLLISION_SOLID   = 'solid';
+
 /* ================= HITBOX CONFIGURATION ================= */
 const PLAYER_CONFIG = {
   w: 48,             // Accurate collision width (tight to body)
@@ -396,7 +403,14 @@ const levels = [
 function loadLevel(i) {
   if (i >= levels.length) { finalWin=true; levelWin=false; return; }
   const l = levels[i];
-  blocks   = l.blocks.map(b => ({...b, ox:b.x, oy:b.y, dir:1, deltaX:0, deltaY:0}));
+  // Spread block data and inject runtime fields.
+  // collision defaults to COLLISION_ONE_WAY — all existing platforms are top-surface only.
+  blocks   = l.blocks.map(b => ({
+    ...b,
+    ox: b.x, oy: b.y,
+    dir: 1, deltaX: 0, deltaY: 0,
+    collision: b.collision || COLLISION_ONE_WAY
+  }));
   spikes   = l.spikes;
   castle   = l.castle;
   hasLava  = l.hasLava || false;
@@ -529,6 +543,91 @@ function triggerShake(dur=14, mag=9) {
   shakeTime=dur;
   shakeX=(Math.random()-0.5)*mag;
   shakeY=(Math.random()-0.5)*mag;
+}
+
+/* ================= PHASE 2B: COLLISION RESOLUTION ================= */
+/**
+ * resolveCollisions()
+ *
+ * Called once per physics tick, AFTER position integration.
+ * Iterates every block and resolves overlap based on its collision type:
+ *
+ *   COLLISION_ONE_WAY — top surface only (original behavior, unchanged).
+ *     The player lands on top when falling AND the previous-frame foot
+ *     position was above the surface (with a speed+tolerance margin).
+ *     The player passes freely through the bottom and sides.
+ *
+ *   COLLISION_SOLID — 4-directional MTV resolution.
+ *     Computes per-axis overlap. The axis with smaller overlap is the
+ *     separating axis → push the player out on that axis only.
+ *     Side hit → zero vx.  Top hit → land + onGround.  Bottom hit → zero vy.
+ *
+ * Moving-platform passenger carry (handled before this call) sets
+ * standingPlatform for moving platforms. This function may additionally
+ * set it for one-way/solid landing. It is cleared here if no block
+ * claims the ground this tick and the passenger system hasn't kept it.
+ */
+function resolveCollisions() {
+  if (isEnteringCastle || isDead) return;
+
+  let foundGround = false;
+
+  blocks.forEach(b => {
+    if (!hit(player, b)) return; // early-out — no overlap
+
+    if (b.collision === COLLISION_SOLID) {
+      /* ---- 4-directional MTV ---- */
+      const overlapL = (player.x + player.w) - b.x;       // penetration from left
+      const overlapR = (b.x + b.w) - player.x;             // penetration from right
+      const overlapT = (player.y + player.h) - b.y;        // penetration from top
+      const overlapB = (b.y + b.h) - player.y;             // penetration from bottom
+
+      const minX = Math.min(overlapL, overlapR);
+      const minY = Math.min(overlapT, overlapB);
+
+      if (minX < minY) {
+        /* --- Side collision (horizontal axis is shallowest) --- */
+        if (overlapL < overlapR) {
+          player.x = b.x - player.w;  // push left (hit right face of player)
+        } else {
+          player.x = b.x + b.w;       // push right (hit left face of player)
+        }
+        player.vx = 0;
+
+      } else {
+        /* --- Vertical collision (vertical axis is shallowest) --- */
+        if (overlapT < overlapB) {
+          /* Top surface — landing */
+          player.y = b.y - player.h;
+          player.vy = 0;
+          player.onGround = true;
+          player.standingPlatform = b;
+          foundGround = true;
+        } else {
+          /* Bottom surface — ceiling hit */
+          player.y = b.y + b.h;
+          if (player.vy < 0) player.vy = 0; // kill upward momentum
+        }
+      }
+
+    } else {
+      /* ---- ONE-WAY: top surface only (original logic, preserved exactly) ---- */
+      const platformSpeedY = b.vy ? Math.abs(b.vy) : 0;
+      if (player.vy >= 0 && (player.y + player.h - player.vy) <= (b.y + platformSpeedY + 8)) {
+        player.y = b.y - player.h;
+        player.vy = 0;
+        player.onGround = true;
+        player.standingPlatform = b;
+        foundGround = true;
+      }
+    }
+  });
+
+  /* Clear ground state if no block landed on this tick
+     (standingPlatform may still be set from passenger carry — leave it alone) */
+  if (!foundGround && !player.standingPlatform) {
+    player.onGround = false;
+  }
 }
 
 /* ================= UPDATE (FIXED TIMESTEP TICK) ================= */
@@ -719,23 +818,8 @@ function update() {
       player.y  += player.vy; 
   }
   
-  /* Platform Landing & Ground Collision Checks */
-  if (!isEnteringCastle && !isDead) {
-      let foundGround = false;
-      blocks.forEach(b => {
-        const platformSpeedY = b.vy ? Math.abs(b.vy) : 0;
-        if (hit(player, b) && player.vy >= 0 && (player.y + player.h - player.vy) <= (b.y + platformSpeedY + 8)) {
-          player.y = b.y - player.h;
-          player.vy = 0;
-          player.onGround = true;
-          player.standingPlatform = b;
-          foundGround = true;
-        }
-      });
-      if (!foundGround && !player.standingPlatform) {
-        player.onGround = false;
-      }
-  }
+  /* Collision resolution — see resolveCollisions() above */
+  resolveCollisions();
 
   /* Player trail */
   if (!isEnteringCastle && (Math.abs(player.vx)>0.5 || Math.abs(player.vy)>1)) {
