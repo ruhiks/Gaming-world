@@ -623,8 +623,24 @@ function resolveCollisions() {
     }
   });
 
-  /* Clear ground state if no block landed on this tick
-     (standingPlatform may still be set from passenger carry — leave it alone) */
+  /* Ground-state maintenance:
+   * 1. If player has a standingPlatform (static or moving), verify whether player is still atop it.
+   * 2. If atop the platform surface within horizontal bounds, maintain onGround and foundGround.
+   * 3. If player walked off edges or separated, clear static platform so gravity resumes next frame.
+   * 4. If no ground contact confirmed, mark player airborne.
+   */
+  if (player.standingPlatform) {
+    const sp = player.standingPlatform;
+    const withinBounds = (player.x + player.w > sp.x && player.x < sp.x + sp.w);
+    const atSurface = Math.abs((player.y + player.h) - sp.y) <= 2;
+    if (withinBounds && atSurface) {
+      player.onGround = true;
+      foundGround = true;
+    } else if (sp.type !== 'moving') {
+      player.standingPlatform = null;
+    }
+  }
+
   if (!foundGround && !player.standingPlatform) {
     player.onGround = false;
   }
