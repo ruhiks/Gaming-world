@@ -40,6 +40,77 @@ const PLAYER_CONFIG = {
   offsetY: -16       // Align feet with platform surface: 80 - 64 = 16
 };
 
+/* ================= GAME STATES & STATE MACHINE (PHASE 3) ================= */
+const GAME_STATES = {
+  MAIN_MENU:      "MAIN_MENU",
+  PLAYING:        "PLAYING",
+  PAUSED:         "PAUSED",
+  LEVEL_COMPLETE: "LEVEL_COMPLETE",
+  GAME_OVER:      "GAME_OVER",
+  SETTINGS:       "SETTINGS"
+};
+
+let gameState     = GAME_STATES.MAIN_MENU;
+let previousState = GAME_STATES.MAIN_MENU;
+
+function setGameState(newState) {
+  if (newState === GAME_STATES.SETTINGS && gameState !== GAME_STATES.SETTINGS) {
+    previousState = gameState;
+  }
+
+  gameState = newState;
+
+  if (typeof document !== 'undefined') {
+    const screens = {
+      [GAME_STATES.MAIN_MENU]:      document.getElementById("mainMenuScreen"),
+      [GAME_STATES.PAUSED]:         document.getElementById("pauseMenuScreen"),
+      [GAME_STATES.GAME_OVER]:      document.getElementById("gameOverScreen"),
+      [GAME_STATES.LEVEL_COMPLETE]: document.getElementById("levelCompleteScreen"),
+      [GAME_STATES.SETTINGS]:       document.getElementById("settingsScreen"),
+      "LEVEL_SELECT":               document.getElementById("levelSelectScreen")
+    };
+
+    Object.entries(screens).forEach(([key, el]) => {
+      if (el) el.style.display = (key === newState) ? "flex" : "none";
+    });
+
+    const pauseBtn = document.getElementById("btnInGamePause");
+    if (pauseBtn) {
+      pauseBtn.style.display = (newState === GAME_STATES.PLAYING) ? "block" : "none";
+    }
+
+    const mobileUI = document.getElementById("mobileUI");
+    if (mobileUI) {
+      const isTouch = ('ontouchstart' in window || (navigator && navigator.maxTouchPoints > 0));
+      if (isTouch && newState === GAME_STATES.PLAYING) {
+        mobileUI.style.display = "flex";
+      } else {
+        mobileUI.style.display = "none";
+      }
+    }
+
+    if (newState === GAME_STATES.LEVEL_COMPLETE) {
+      const titleEl = document.getElementById("levelCompleteTitle");
+      const subEl   = document.getElementById("levelCompleteSubtitle");
+      const nextBtn = document.getElementById("btnNextLevel");
+
+      if (levelIndex >= levels.length - 1) {
+        if (titleEl) titleEl.textContent = "DUNGEON CLEARED!";
+        if (subEl)   subEl.textContent   = "The Wizard is Victorious!";
+        if (nextBtn) nextBtn.textContent = "★ PLAY AGAIN";
+      } else {
+        if (titleEl) titleEl.textContent = "LEVEL COMPLETED!";
+        if (subEl)   subEl.textContent   = "Dungeon floor " + (levelIndex + 1) + " cleared!";
+        if (nextBtn) nextBtn.textContent = "⚡ NEXT LEVEL";
+      }
+    }
+  }
+
+  if (typeof soundSystem !== 'undefined' && soundSystem) {
+    soundSystem.updateUI();
+  }
+}
+
 /* ================= STATE ================= */
 let levelIndex = 0;
 let gameOver   = false;
@@ -62,7 +133,7 @@ let shootCooldown = 0;
 /* Castle Entering Animation */
 let isEnteringCastle = false;
 let enterTimer       = 0;
-let castleDoorOpen   = 0; 
+let castleDoorOpen   = 0;
 
 /* Fade-to-black transition */
 let fadeAlpha    = 0;
@@ -350,6 +421,17 @@ class SoundSystem {
     const sfxSlider   = document.getElementById("sfxVol");
     const sfxVal      = document.getElementById("sfxVolVal");
 
+    const smBtn        = document.getElementById("settingsMuteBtn");
+    const smIcon       = document.getElementById("settingsMuteIcon");
+    const smText       = document.getElementById("settingsMuteText");
+    const sMusicSlider = document.getElementById("settingsMusicVol");
+    const sMusicVal    = document.getElementById("settingsMusicVal");
+    const sSfxSlider   = document.getElementById("settingsSfxVol");
+    const sSfxVal      = document.getElementById("settingsSfxVal");
+
+    const musicPct = Math.round(this.musicVolume * 100);
+    const sfxPct   = Math.round(this.sfxVolume * 100);
+
     if (muteBtn) {
       if (this.isMuted) {
         muteBtn.classList.add("muted");
@@ -361,10 +443,25 @@ class SoundSystem {
         if (muteText) muteText.textContent = "Audio";
       }
     }
-    if (musicSlider) musicSlider.value = Math.round(this.musicVolume * 100);
-    if (musicVal) musicVal.textContent = Math.round(this.musicVolume * 100) + "%";
-    if (sfxSlider) sfxSlider.value = Math.round(this.sfxVolume * 100);
-    if (sfxVal) sfxVal.textContent = Math.round(this.sfxVolume * 100) + "%";
+    if (smBtn) {
+      if (this.isMuted) {
+        if (smIcon) smIcon.textContent = "🔇";
+        if (smText) smText.textContent = "Unmute";
+      } else {
+        if (smIcon) smIcon.textContent = "🔊";
+        if (smText) smText.textContent = "Mute";
+      }
+    }
+
+    if (musicSlider)  musicSlider.value  = musicPct;
+    if (musicVal)     musicVal.textContent = musicPct + "%";
+    if (sMusicSlider) sMusicSlider.value = musicPct;
+    if (sMusicVal)    sMusicVal.textContent = musicPct + "%";
+
+    if (sfxSlider)    sfxSlider.value    = sfxPct;
+    if (sfxVal)       sfxVal.textContent   = sfxPct + "%";
+    if (sSfxSlider)   sSfxSlider.value   = sfxPct;
+    if (sSfxVal)      sSfxVal.textContent  = sfxPct + "%";
   }
 
   /* ================= BACKGROUND MUSIC ================= */
@@ -918,7 +1015,7 @@ function startFade(callback) {
 
 /* ================= OBJECTS & CLASSES ================= */
 let blocks=[], spikes=[], castle={}, fireballs=[];
-let hasLava = false; 
+let hasLava = false;
 
 const dragonObj = {
   x:0, y:0, baseY:0, w:120, h:100,
@@ -1034,8 +1131,8 @@ const levels = [
       {x:430,y:312,w:40,h:28},
     ],
     castle:{x:820,y:-80,w:140,h:160},
-    dragon:{x:700,y:40, active:true, hp:6, fireRate:70, minX:550, maxX:820, moveSpeed: 4}, 
-    hasLava:true 
+    dragon:{x:700,y:40, active:true, hp:6, fireRate:70, minX:550, maxX:820, moveSpeed: 4},
+    hasLava:true
   }
 ];
 
@@ -1068,7 +1165,7 @@ function loadLevel(i) {
   } else { dragonObj.active=false; }
 
   fireballs=[]; particles=[]; playerTrails=[]; fireworks=[]; playerSpells=[];
-  
+
   /* Reset Player Combat & Positioning */
   player.x=l.start.x; player.y=l.start.y; player.vx=0; player.vy=0;
   player.standingPlatform = null;
@@ -1078,26 +1175,26 @@ function loadLevel(i) {
   player.jumpBuffer  = 0;
   player.jumpHeld    = false;
   player.wasJumping  = false;
-  
+
   hp = MAX_HEALTH;
   invincibilityTimer = 0;
   shootCooldown = 0;
-  
-  gameOver=false; levelWin=false; winTimer=0; 
+
+  gameOver=false; levelWin=false; winTimer=0;
   isEnteringCastle=false; enterTimer=0; castleDoorOpen=0;
   isDead=false;
 }
 
 function die() {
   if (isDead) return;
-  isDead = true; 
+  isDead = true;
   lives--;
   soundSystem.play("death");
   triggerShake();
-  
-  if (lives<=0) {
-    lives=MAX_LIVES;
-    gameOver=true;
+
+  if (lives <= 0) {
+    gameOver = true;
+    setGameState(GAME_STATES.GAME_OVER);
   } else {
     startFade(() => { loadLevel(levelIndex); });
   }
@@ -1110,7 +1207,7 @@ function damagePlayer() {
   triggerShake(12, 6);
   spawnParticles(player.x + player.w/2, player.y + player.h/2, "#ff0000", 12, 4, 30, 4);
   soundSystem.play("damage");
-  
+
   // Knockback!
   const kbDir = player.facing ? -1 : 1;
   player.vx = kbDir * 6;
@@ -1127,20 +1224,78 @@ function damagePlayer() {
 const keys={};
 window.addEventListener("keydown", e => {
   soundSystem.unlock();
-  keys[e.code]=true;
-  if (e.code==="KeyR") {
-    if (finalWin) { levelIndex=0; finalWin=false; lives=MAX_LIVES; loadLevel(0); }
-    else if (gameOver) { lives=MAX_LIVES; loadLevel(levelIndex); gameOver=false; }
-  } else if (e.code==="KeyM") {
+
+  /* State Navigation Hotkeys */
+  if (e.code === "Escape" || e.code === "KeyP") {
+    if (gameState === GAME_STATES.PLAYING) {
+      setGameState(GAME_STATES.PAUSED);
+      return;
+    } else if (gameState === GAME_STATES.PAUSED) {
+      setGameState(GAME_STATES.PLAYING);
+      return;
+    } else if (gameState === GAME_STATES.SETTINGS) {
+      setGameState(previousState || GAME_STATES.MAIN_MENU);
+      return;
+    } else if (gameState === "LEVEL_SELECT") {
+      setGameState(GAME_STATES.MAIN_MENU);
+      return;
+    }
+  }
+
+  if (e.code === "KeyR") {
+    if (gameState === GAME_STATES.GAME_OVER) {
+      lives = MAX_LIVES;
+      hp = MAX_HEALTH;
+      loadLevel(levelIndex);
+      setGameState(GAME_STATES.PLAYING);
+      return;
+    } else if (gameState === GAME_STATES.PAUSED) {
+      loadLevel(levelIndex);
+      setGameState(GAME_STATES.PLAYING);
+      return;
+    }
+  }
+
+  if (e.code === "Enter" || e.code === "Space") {
+    if (gameState === GAME_STATES.MAIN_MENU) {
+      levelIndex = 0;
+      loadLevel(0);
+      setGameState(GAME_STATES.PLAYING);
+      return;
+    } else if (gameState === GAME_STATES.GAME_OVER) {
+      lives = MAX_LIVES;
+      hp = MAX_HEALTH;
+      loadLevel(levelIndex);
+      setGameState(GAME_STATES.PLAYING);
+      return;
+    } else if (gameState === GAME_STATES.LEVEL_COMPLETE) {
+      if (levelIndex >= levels.length - 1) {
+        levelIndex = 0;
+        loadLevel(0);
+        setGameState(GAME_STATES.PLAYING);
+      } else {
+        levelIndex++;
+        loadLevel(levelIndex);
+        setGameState(GAME_STATES.PLAYING);
+      }
+      return;
+    }
+  }
+
+  if (e.code === "KeyM") {
     soundSystem.toggleMute();
-  } else if (e.code==="BracketLeft") {
+  } else if (e.code === "BracketLeft") {
     soundSystem.setMusicVolume(soundSystem.musicVolume - 0.1);
-  } else if (e.code==="BracketRight") {
+  } else if (e.code === "BracketRight") {
     soundSystem.setMusicVolume(soundSystem.musicVolume + 0.1);
-  } else if (e.code==="Minus" || e.code==="NumpadSubtract") {
+  } else if (e.code === "Minus" || e.code === "NumpadSubtract") {
     soundSystem.setSfxVolume(soundSystem.sfxVolume - 0.1);
-  } else if (e.code==="Equal" || e.code==="NumpadAdd") {
+  } else if (e.code === "Equal" || e.code === "NumpadAdd") {
     soundSystem.setSfxVolume(soundSystem.sfxVolume + 0.1);
+  }
+
+  if (gameState === GAME_STATES.PLAYING) {
+    keys[e.code] = true;
   }
 });
 window.addEventListener("keyup", e => keys[e.code]=false);
@@ -1165,14 +1320,14 @@ window.addEventListener('touchend', (e) => {
 const bindBtn = (id, code) => {
     const btn = document.getElementById(id);
     if (!btn) return;
-    const press = (e) => { 
+    const press = (e) => {
         soundSystem.unlock();
-        if(e.cancelable) e.preventDefault(); 
-        keys[code] = true; 
+        if(e.cancelable) e.preventDefault();
+        keys[code] = true;
     };
-    const release = (e) => { 
-        if(e.cancelable) e.preventDefault(); 
-        keys[code] = false; 
+    const release = (e) => {
+        if(e.cancelable) e.preventDefault();
+        keys[code] = false;
     };
     btn.addEventListener("touchstart", press, {passive: false});
     btn.addEventListener("touchend", release);
@@ -1183,28 +1338,215 @@ bindBtn("btn-right", "ArrowRight");
 bindBtn("btn-jump", "Space");
 bindBtn("btn-shoot", "KeyZ");
 
-/* Audio Controls DOM Binding */
-const muteBtn = document.getElementById("audioMuteBtn");
-if (muteBtn) {
-  muteBtn.addEventListener("click", () => {
-    soundSystem.unlock();
-    soundSystem.toggleMute();
-    muteBtn.blur();
+/* Audio Controls DOM Binding & Professional UI System (Phase 3) */
+function initUI() {
+  // Top-Right Quick Audio Controls
+  const muteBtn = document.getElementById("audioMuteBtn");
+  if (muteBtn) {
+    muteBtn.addEventListener("click", () => {
+      soundSystem.unlock();
+      soundSystem.toggleMute();
+      muteBtn.blur();
+    });
+  }
+  const musicSlider = document.getElementById("musicVol");
+  if (musicSlider) {
+    musicSlider.addEventListener("input", (e) => {
+      soundSystem.unlock();
+      soundSystem.setMusicVolume(parseFloat(e.target.value) / 100);
+    });
+  }
+  const sfxSlider = document.getElementById("sfxVol");
+  if (sfxSlider) {
+    sfxSlider.addEventListener("input", (e) => {
+      soundSystem.unlock();
+      soundSystem.setSfxVolume(parseFloat(e.target.value) / 100);
+    });
+  }
+
+  // In-Game Pause Button
+  const btnInGamePause = document.getElementById("btnInGamePause");
+  if (btnInGamePause) {
+    btnInGamePause.addEventListener("click", () => {
+      soundSystem.unlock();
+      if (gameState === GAME_STATES.PLAYING) {
+        setGameState(GAME_STATES.PAUSED);
+      }
+    });
+  }
+
+  // Main Menu Buttons
+  const btnPlay = document.getElementById("btnPlay");
+  if (btnPlay) {
+    btnPlay.addEventListener("click", () => {
+      soundSystem.unlock();
+      levelIndex = 0;
+      loadLevel(0);
+      setGameState(GAME_STATES.PLAYING);
+    });
+  }
+
+  const btnLevels = document.getElementById("btnLevels");
+  if (btnLevels) {
+    btnLevels.addEventListener("click", () => {
+      soundSystem.unlock();
+      setGameState("LEVEL_SELECT");
+    });
+  }
+
+  const btnSettings = document.getElementById("btnSettings");
+  if (btnSettings) {
+    btnSettings.addEventListener("click", () => {
+      soundSystem.unlock();
+      previousState = GAME_STATES.MAIN_MENU;
+      setGameState(GAME_STATES.SETTINGS);
+    });
+  }
+
+  // Level Select Grid Buttons
+  const levelBtns = document.querySelectorAll(".level-btn");
+  levelBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      soundSystem.unlock();
+      const targetLevel = parseInt(btn.getAttribute("data-level")) || 0;
+      levelIndex = targetLevel;
+      loadLevel(levelIndex);
+      setGameState(GAME_STATES.PLAYING);
+    });
   });
-}
-const musicSlider = document.getElementById("musicVol");
-if (musicSlider) {
-  musicSlider.addEventListener("input", (e) => {
-    soundSystem.unlock();
-    soundSystem.setMusicVolume(parseFloat(e.target.value) / 100);
-  });
-}
-const sfxSlider = document.getElementById("sfxVol");
-if (sfxSlider) {
-  sfxSlider.addEventListener("input", (e) => {
-    soundSystem.unlock();
-    soundSystem.setSfxVolume(parseFloat(e.target.value) / 100);
-  });
+
+  const btnLevelSelectBack = document.getElementById("btnLevelSelectBack");
+  if (btnLevelSelectBack) {
+    btnLevelSelectBack.addEventListener("click", () => {
+      soundSystem.unlock();
+      setGameState(GAME_STATES.MAIN_MENU);
+    });
+  }
+
+  // Pause Menu Buttons
+  const btnResume = document.getElementById("btnResume");
+  if (btnResume) {
+    btnResume.addEventListener("click", () => {
+      soundSystem.unlock();
+      setGameState(GAME_STATES.PLAYING);
+    });
+  }
+
+  const btnRestart = document.getElementById("btnRestart");
+  if (btnRestart) {
+    btnRestart.addEventListener("click", () => {
+      soundSystem.unlock();
+      loadLevel(levelIndex);
+      setGameState(GAME_STATES.PLAYING);
+    });
+  }
+
+  const btnPauseSettings = document.getElementById("btnPauseSettings");
+  if (btnPauseSettings) {
+    btnPauseSettings.addEventListener("click", () => {
+      soundSystem.unlock();
+      previousState = GAME_STATES.PAUSED;
+      setGameState(GAME_STATES.SETTINGS);
+    });
+  }
+
+  const btnPauseMainMenu = document.getElementById("btnPauseMainMenu");
+  if (btnPauseMainMenu) {
+    btnPauseMainMenu.addEventListener("click", () => {
+      soundSystem.unlock();
+      setGameState(GAME_STATES.MAIN_MENU);
+    });
+  }
+
+  // Game Over Buttons
+  const btnRetry = document.getElementById("btnRetry");
+  if (btnRetry) {
+    btnRetry.addEventListener("click", () => {
+      soundSystem.unlock();
+      lives = MAX_LIVES;
+      hp = MAX_HEALTH;
+      loadLevel(levelIndex);
+      setGameState(GAME_STATES.PLAYING);
+    });
+  }
+
+  const btnGameOverMainMenu = document.getElementById("btnGameOverMainMenu");
+  if (btnGameOverMainMenu) {
+    btnGameOverMainMenu.addEventListener("click", () => {
+      soundSystem.unlock();
+      lives = MAX_LIVES;
+      hp = MAX_HEALTH;
+      setGameState(GAME_STATES.MAIN_MENU);
+    });
+  }
+
+  // Level Complete Buttons
+  const btnNextLevel = document.getElementById("btnNextLevel");
+  if (btnNextLevel) {
+    btnNextLevel.addEventListener("click", () => {
+      soundSystem.unlock();
+      if (levelIndex >= levels.length - 1) {
+        levelIndex = 0;
+        loadLevel(0);
+        setGameState(GAME_STATES.PLAYING);
+      } else {
+        levelIndex++;
+        loadLevel(levelIndex);
+        setGameState(GAME_STATES.PLAYING);
+      }
+    });
+  }
+
+  const btnReplayLevel = document.getElementById("btnReplayLevel");
+  if (btnReplayLevel) {
+    btnReplayLevel.addEventListener("click", () => {
+      soundSystem.unlock();
+      loadLevel(levelIndex);
+      setGameState(GAME_STATES.PLAYING);
+    });
+  }
+
+  const btnLevelCompleteMainMenu = document.getElementById("btnLevelCompleteMainMenu");
+  if (btnLevelCompleteMainMenu) {
+    btnLevelCompleteMainMenu.addEventListener("click", () => {
+      soundSystem.unlock();
+      setGameState(GAME_STATES.MAIN_MENU);
+    });
+  }
+
+  // Settings Screen Controls
+  const settingsMusicVol = document.getElementById("settingsMusicVol");
+  if (settingsMusicVol) {
+    settingsMusicVol.addEventListener("input", (e) => {
+      soundSystem.unlock();
+      soundSystem.setMusicVolume(parseFloat(e.target.value) / 100);
+    });
+  }
+
+  const settingsSfxVol = document.getElementById("settingsSfxVol");
+  if (settingsSfxVol) {
+    settingsSfxVol.addEventListener("input", (e) => {
+      soundSystem.unlock();
+      soundSystem.setSfxVolume(parseFloat(e.target.value) / 100);
+    });
+  }
+
+  const settingsMuteBtn = document.getElementById("settingsMuteBtn");
+  if (settingsMuteBtn) {
+    settingsMuteBtn.addEventListener("click", () => {
+      soundSystem.unlock();
+      soundSystem.toggleMute();
+      settingsMuteBtn.blur();
+    });
+  }
+
+  const btnSettingsBack = document.getElementById("btnSettingsBack");
+  if (btnSettingsBack) {
+    btnSettingsBack.addEventListener("click", () => {
+      soundSystem.unlock();
+      setGameState(previousState || GAME_STATES.MAIN_MENU);
+    });
+  }
 }
 
 /* ================= COLLISION ================= */
@@ -1323,6 +1665,11 @@ function resolveCollisions() {
 
 /* ================= UPDATE (FIXED TIMESTEP TICK) ================= */
 function update() {
+  /* Stop gameplay completely when not in PLAYING state */
+  if (gameState !== GAME_STATES.PLAYING) {
+    return;
+  }
+
   frameCount++;
 
   /* Parallax */
@@ -1413,7 +1760,7 @@ function update() {
           dragonObj.hitTimer = 10;
           spark(sp.x+8, sp.y+8);
           playerSpells.splice(i, 1);
-          
+
           if (dragonObj.hp <= 0) {
               dragonObj.active = false;
               spawnFirework(dragonObj.x+dragonObj.w/2, dragonObj.y+dragonObj.h/2);
@@ -1494,12 +1841,13 @@ function update() {
       player.y += (doorFloorY - player.y) * 0.12;
       enterTimer++;
       castleDoorOpen = Math.min(1, enterTimer / 30);
-      
+
       if (enterTimer > 60) {
           isEnteringCastle = false;
-          levelWin = true; 
+          levelWin = true;
           winTimer = 0;
           soundSystem.play("levelWin");
+          setGameState(GAME_STATES.LEVEL_COMPLETE);
       }
   } else if (!isDead && !fadingOut) {
       if (!player.standingPlatform) {
@@ -1511,9 +1859,9 @@ function update() {
       }
   } else {
       player.vy += GRAVITY;
-      player.y  += player.vy; 
+      player.y  += player.vy;
   }
-  
+
   /* Collision resolution — see resolveCollisions() above */
   const prevGrounded = player.onGround;
   const prevVy = player.vy;
@@ -1540,7 +1888,7 @@ function update() {
     if (dragonObj.minX !== dragonObj.maxX) {
        dragonObj.x += dragonObj.moveSpeed * dragonObj.moveDir;
        if (dragonObj.x <= dragonObj.minX || dragonObj.x >= dragonObj.maxX) {
-           dragonObj.moveDir *= -1; 
+           dragonObj.moveDir *= -1;
        }
     }
     dragonObj.attackTimer++;
@@ -1556,13 +1904,13 @@ function update() {
   for (let i = fireballs.length - 1; i >= 0; i--) {
     const fb = fireballs[i];
     fb.update();
-    
+
     if (!isDead && !fadingOut && !isEnteringCastle && hit(player, fb)) {
        damagePlayer();
        fireballs.splice(i, 1);
        continue;
     }
-    
+
     if (fb.life <= 0 || fb.x < 0 || fb.x > canvas.width) fireballs.splice(i, 1);
   }
 
@@ -1571,16 +1919,16 @@ function update() {
       if (player.y > FALL_DEATH_Y) die();
       else if (hasLava && player.y + player.h > canvas.height - 18) die();
       else {
-          spikes.forEach(s => { 
-              if (!isDead && hit(player, s)) damagePlayer(); 
+          spikes.forEach(s => {
+              if (!isDead && hit(player, s)) damagePlayer();
           });
-          
+
           if (dragonObj.active && hit(player, {x:dragonObj.x, y:dragonObj.y, w:dragonObj.w, h:dragonObj.h})) {
               damagePlayer();
           }
-          
+
           if (!isDead && hit(player, castle)) {
-              isEnteringCastle = true; 
+              isEnteringCastle = true;
               enterTimer = 0;
               player.standingPlatform = null;
               soundSystem.play("castle");
@@ -1602,7 +1950,7 @@ function updateFireworks() {
 
 /* ================= DRAW: 3D BLOCK ================= */
 function draw3DBlock(b) {
-  const D=16; 
+  const D=16;
   const bx=b.x,by=b.y,bw=b.w,bh=b.h;
   const blockTexture = images.block;
 
@@ -1683,8 +2031,8 @@ function drawLives() {
   ctx.save();
   ctx.font="22px Arial";
   ctx.shadowColor="black"; ctx.shadowBlur=6; ctx.shadowOffsetY=2;
-  
-  ctx.fillStyle="white"; 
+
+  ctx.fillStyle="white";
   ctx.fillText("Lives:  " + "❤".repeat(lives) + "♡".repeat(MAX_LIVES-lives), 20, 36);
   ctx.fillStyle="#ff4444";
   ctx.fillText("Health: " + "❤".repeat(hp) + "♡".repeat(MAX_HEALTH-hp), 20, 68);
@@ -1699,7 +2047,7 @@ function drawLoadingScreen() {
 
   ctx.save();
   ctx.textAlign = "center";
-  
+
   ctx.fillStyle = "#ffd700";
   ctx.font = "bold 38px serif";
   ctx.shadowColor = "#ffd700";
@@ -1714,7 +2062,7 @@ function drawLoadingScreen() {
   const barW = 320, barH = 14;
   const barX = canvas.width / 2 - barW / 2;
   const barY = canvas.height / 2 + 30;
-  
+
   ctx.strokeStyle = "rgba(255,255,255,0.4)";
   ctx.lineWidth = 2;
   ctx.strokeRect(barX, barY, barW, barH);
@@ -1804,15 +2152,15 @@ function draw() {
   if (isEnteringCastle || levelWin || fadingOut) {
       let openRatio = castleDoorOpen;
       if (levelWin || fadingOut) openRatio = 1;
-      
+
       ctx.save();
       ctx.fillStyle = "black";
       ctx.shadowColor = "black"; ctx.shadowBlur = 10;
-      
-      const doorW = 44 * openRatio; 
-      const doorH = 75; 
+
+      const doorW = 44 * openRatio;
+      const doorH = 75;
       const doorX = castle.x + (castle.w/2) - (doorW/2);
-      const doorY = castle.y + castle.h - doorH - 4; 
+      const doorY = castle.y + castle.h - doorH - 4;
       ctx.fillRect(doorX, doorY, doorW, doorH);
       ctx.restore();
   }
@@ -1821,15 +2169,15 @@ function draw() {
   if (dragonObj.active) {
     const dragonImg = images.dragon;
     ctx.save();
-    ctx.shadowColor = dragonObj.hitTimer > 0 ? "white" : "#9b00ff"; 
+    ctx.shadowColor = dragonObj.hitTimer > 0 ? "white" : "#9b00ff";
     ctx.shadowBlur  = dragonObj.hitTimer > 0 ? 40 : 28;
-    
+
     if (dragonObj.hitTimer > 0) {
        ctx.globalCompositeOperation = "lighter";
        ctx.filter = "brightness(2) contrast(1.5)";
        dragonObj.hitTimer--;
     }
-    
+
     if (dragonImg) {
       if (dragonObj.moveDir > 0) {
           ctx.translate(dragonObj.x + dragonObj.w, dragonObj.y);
@@ -1869,17 +2217,17 @@ function draw() {
     if (isEnteringCastle) {
         alpha = Math.max(0, 1 - Math.max(0, enterTimer - 15) / 30);
     } else if (levelWin || fadingOut) {
-        alpha = 0; 
+        alpha = 0;
     } else if (invincibilityTimer > 0) {
         alpha = (frameCount % 12 > 6) ? 0.3 : 1;
     }
-    
+
     if (alpha > 0) {
         const bobY = (player.onGround && !isEnteringCastle) ? Math.sin(frameCount*0.12)*2:0;
         ctx.save();
         ctx.globalAlpha = alpha;
         ctx.shadowColor="#a0f0ff"; ctx.shadowBlur=22;
-        
+
         const drawX = player.x + PLAYER_CONFIG.offsetX;
         const drawY = player.y + PLAYER_CONFIG.offsetY + bobY;
 
@@ -1914,8 +2262,8 @@ function draw() {
     ctx.restore();
   });
 
-  /* HUD */
-  if (!finalWin) {
+  /* HUD (In-game) */
+  if (gameState === GAME_STATES.PLAYING || gameState === GAME_STATES.PAUSED) {
     ctx.save();
     ctx.shadowColor="black"; ctx.shadowBlur=6; ctx.shadowOffsetY=2;
     ctx.fillStyle="white"; ctx.font="bold 20px Arial";
@@ -1942,15 +2290,15 @@ function draw() {
 
   /* Level Complete */
   if (levelWin && !finalWin) {
-    ctx.save(); 
+    ctx.save();
     ctx.textAlign="center";
     const fade = Math.min(1, winTimer / 30);
     ctx.globalAlpha = fade;
-    
-    ctx.shadowColor="rgba(0,0,0,0.8)"; 
-    ctx.shadowBlur=8; 
+
+    ctx.shadowColor="rgba(0,0,0,0.8)";
+    ctx.shadowBlur=8;
     ctx.shadowOffsetY=4;
-    ctx.fillStyle="#ffd700"; 
+    ctx.fillStyle="#ffd700";
     ctx.font="bold 54px Arial";
     ctx.fillText("LEVEL COMPLETED!", canvas.width/2, canvas.height/2);
     ctx.restore();
@@ -1986,7 +2334,7 @@ function draw() {
     ctx.restore();
   }
 
-  ctx.restore(); 
+  ctx.restore();
 }
 
 /* ================= DETERMINISTIC FIXED-TIMESTEP LOOP ================= */
@@ -2018,6 +2366,8 @@ function loop(currentTime) {
 /* ================= INITIALIZATION ================= */
 preloadAssets(() => {
   loadLevel(0);
+  initUI();
+  setGameState(GAME_STATES.MAIN_MENU);
 });
 
 requestAnimationFrame(loop);
