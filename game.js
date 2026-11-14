@@ -1013,6 +1013,110 @@ function startFade(callback) {
   fadingOut=true; fadeAlpha=0; fadeCallback=callback;
 }
 
+/* ================= 2.5D DARK FANTASY VISUAL & LIGHTING SYSTEM (PHASE 2) ================= */
+// Ambient atmospheric floating embers and spores
+const ATMOSPHERE_CONFIG = {
+  emberCount: 45,
+  fogLayers: 3
+};
+
+let atmosphericEmbers = [];
+function initAtmosphere() {
+  atmosphericEmbers = [];
+  for (let i = 0; i < ATMOSPHERE_CONFIG.emberCount; i++) {
+    atmosphericEmbers.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      radius: Math.random() * 2.2 + 0.6,
+      vx: (Math.random() - 0.4) * 0.45,
+      vy: -(Math.random() * 0.55 + 0.25),
+      alpha: Math.random() * 0.6 + 0.2,
+      baseAlpha: Math.random() * 0.6 + 0.2,
+      pulseSpeed: Math.random() * 0.05 + 0.02,
+      hue: Math.random() > 0.35 ? (Math.random() * 25 + 15) : (Math.random() * 40 + 260) // fiery orange or arcane violet
+    });
+  }
+}
+initAtmosphere();
+
+function updateAtmosphere() {
+  for (let i = 0; i < atmosphericEmbers.length; i++) {
+    const e = atmosphericEmbers[i];
+    e.x += e.vx + Math.sin(frameCount * 0.02 + i) * 0.2;
+    e.y += e.vy;
+    e.alpha = e.baseAlpha * (0.65 + 0.35 * Math.sin(frameCount * e.pulseSpeed + i));
+
+    if (e.y < -10) {
+      e.y = canvas.height + 10;
+      e.x = Math.random() * canvas.width;
+    }
+    if (e.x < -10) e.x = canvas.width + 10;
+    if (e.x > canvas.width + 10) e.x = -10;
+  }
+}
+
+// Lighting Map: collects light sources each frame and renders a soft additive lighting pass
+const lightSources = [];
+function addLight(x, y, radius, color, intensity=1.0) {
+  lightSources.push({ x, y, radius, color, intensity });
+}
+
+function renderLightingPass() {
+  if (lightSources.length === 0) return;
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+
+  for (let i = 0; i < lightSources.length; i++) {
+    const l = lightSources[i];
+    const grad = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.radius);
+    grad.addColorStop(0, l.color);
+    grad.addColorStop(0.4, l.color.replace(/[\d\.]+\)$/, (m) => (parseFloat(m) * 0.45).toFixed(3) + ")"));
+    grad.addColorStop(1, "rgba(0,0,0,0)");
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(l.x, l.y, l.radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+  lightSources.length = 0; // reset for next frame
+}
+
+// Cinematic Vignette & Atmospheric Fog Overlay
+function drawDarkFantasyVignette() {
+  ctx.save();
+  // Deep peripheral vignette
+  const vig = ctx.createRadialGradient(
+    canvas.width / 2, canvas.height / 2, canvas.width * 0.32,
+    canvas.width / 2, canvas.height / 2, canvas.width * 0.72
+  );
+  vig.addColorStop(0, "rgba(0,0,0,0)");
+  vig.addColorStop(0.65, "rgba(4, 3, 10, 0.45)");
+  vig.addColorStop(1, "rgba(2, 1, 6, 0.88)");
+  ctx.fillStyle = vig;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Subtle cold gothic color grade wash
+  ctx.globalCompositeOperation = "color-burn";
+  ctx.fillStyle = "rgba(10, 15, 30, 0.12)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
+}
+
+function drawAtmosphericEmbers() {
+  ctx.save();
+  for (let i = 0; i < atmosphericEmbers.length; i++) {
+    const e = atmosphericEmbers[i];
+    ctx.fillStyle = `hsla(${e.hue}, 100%, 65%, ${e.alpha})`;
+    ctx.shadowColor = `hsla(${e.hue}, 100%, 55%, 0.7)`;
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 /* ================= OBJECTS & CLASSES ================= */
 let blocks=[], spikes=[], castle={}, fireballs=[];
 let hasLava = false;
@@ -1939,6 +2043,11 @@ function update() {
   updateParticles();
 }
 
+function updateAtmosphereAndParticles() {
+  updateAtmosphere();
+  updateAtmosphereAndParticles();
+}
+
 function updateParticles() {
   particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.life--; });
   particles = particles.filter(p => p.life > 0);
@@ -1948,82 +2057,163 @@ function updateFireworks() {
   fireworks = fireworks.filter(f => f.life > 0);
 }
 
-/* ================= DRAW: 3D BLOCK ================= */
+/* ================= DRAW: 2.5D DARK FANTASY CHISELED BLOCK ================= */
 function draw3DBlock(b) {
-  const D=16;
-  const bx=b.x,by=b.y,bw=b.w,bh=b.h;
+  const D = 16;
+  const bx = b.x, by = b.y, bw = b.w, bh = b.h;
   const blockTexture = images.block;
 
+  // 1. Ambient Occlusion / Drop Shadow into background
   ctx.save();
-  ctx.shadowColor="rgba(0,0,0,0.8)"; ctx.shadowBlur=14; ctx.shadowOffsetY=8;
-  ctx.fillStyle="black";
-  ctx.fillRect(bx,by,bw,bh);
+  ctx.shadowColor = "rgba(2, 2, 6, 0.9)";
+  ctx.shadowBlur = 18;
+  ctx.shadowOffsetY = 10;
+  ctx.fillStyle = "black";
+  ctx.fillRect(bx, by, bw, bh);
   ctx.restore();
 
+  // 2. Primary Top Surface Face
   if (blockTexture) {
     ctx.drawImage(blockTexture, bx, by, bw, bh);
+    // Dark fantasy gothic tint overlay
+    ctx.fillStyle = "rgba(12, 10, 24, 0.28)";
+    ctx.fillRect(bx, by, bw, bh);
   } else {
-    ctx.fillStyle="#4b0082";
+    // Chiseled procedural obsidian masonry
+    const surfaceGrad = ctx.createLinearGradient(bx, by, bx, by + bh);
+    surfaceGrad.addColorStop(0, "#2a2236");
+    surfaceGrad.addColorStop(0.5, "#1a1524");
+    surfaceGrad.addColorStop(1, "#120e1a");
+    ctx.fillStyle = surfaceGrad;
     ctx.fillRect(bx, by, bw, bh);
   }
 
-  const bottomGrad=ctx.createLinearGradient(0, by+bh, 0, by+bh+D);
-  bottomGrad.addColorStop(0,"rgba(0,0,0,0.85)");
-  bottomGrad.addColorStop(1,"rgba(0,0,0,0.45)");
-  ctx.fillStyle=bottomGrad;
+  // 3. 2.5D Bottom Extrusion with Chiseled Stone Texture
+  const bottomGrad = ctx.createLinearGradient(0, by + bh, 0, by + bh + D);
+  bottomGrad.addColorStop(0, "rgba(8, 6, 14, 0.95)");
+  bottomGrad.addColorStop(0.5, "rgba(14, 10, 22, 0.85)");
+  bottomGrad.addColorStop(1, "rgba(4, 2, 8, 0.45)");
+  ctx.fillStyle = bottomGrad;
   ctx.beginPath();
-  ctx.moveTo(bx,    by+bh);
-  ctx.lineTo(bx+D,  by+bh+D);
-  ctx.lineTo(bx+bw+D, by+bh+D);
-  ctx.lineTo(bx+bw, by+bh);
-  ctx.closePath(); ctx.fill();
+  ctx.moveTo(bx, by + bh);
+  ctx.lineTo(bx + D, by + bh + D);
+  ctx.lineTo(bx + bw + D, by + bh + D);
+  ctx.lineTo(bx + bw, by + bh);
+  ctx.closePath();
+  ctx.fill();
 
-  const rightGrad=ctx.createLinearGradient(bx+bw, 0, bx+bw+D, 0);
-  rightGrad.addColorStop(0,"rgba(0,0,0,0.7)");
-  rightGrad.addColorStop(1,"rgba(0,0,0,0.3)");
-  ctx.fillStyle=rightGrad;
+  // Bottom edge mortar line
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.75)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // 4. 2.5D Right Lateral Bevel Face
+  const rightGrad = ctx.createLinearGradient(bx + bw, 0, bx + bw + D, 0);
+  rightGrad.addColorStop(0, "rgba(22, 18, 34, 0.85)");
+  rightGrad.addColorStop(0.5, "rgba(14, 10, 22, 0.65)");
+  rightGrad.addColorStop(1, "rgba(5, 3, 10, 0.35)");
+  ctx.fillStyle = rightGrad;
   ctx.beginPath();
-  ctx.moveTo(bx+bw,   by);
-  ctx.lineTo(bx+bw+D, by+D);
-  ctx.lineTo(bx+bw+D, by+bh+D);
-  ctx.lineTo(bx+bw,   by+bh);
-  ctx.closePath(); ctx.fill();
+  ctx.moveTo(bx + bw, by);
+  ctx.lineTo(bx + bw + D, by + D);
+  ctx.lineTo(bx + bw + D, by + bh + D);
+  ctx.lineTo(bx + bw, by + bh);
+  ctx.closePath();
+  ctx.fill();
 
-  ctx.fillStyle="rgba(0,0,0,0.35)";
-  ctx.fillRect(bx, by, bw, 6);
+  // 5. Chiseled Top Rim Specular Highlight (Crisp footing line)
+  ctx.save();
+  const rimGrad = ctx.createLinearGradient(bx, by, bx + bw, by);
+  rimGrad.addColorStop(0, "rgba(160, 240, 255, 0.55)");
+  rimGrad.addColorStop(0.5, "rgba(255, 255, 255, 0.75)");
+  rimGrad.addColorStop(1, "rgba(160, 240, 255, 0.45)");
+  ctx.strokeStyle = rimGrad;
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(bx, by + 1);
+  ctx.lineTo(bx + bw, by + 1);
+  ctx.stroke();
 
-  ctx.strokeStyle="rgba(255,255,255,0.4)"; ctx.lineWidth=1.5;
-  ctx.beginPath(); ctx.moveTo(bx,by); ctx.lineTo(bx+bw,by); ctx.stroke();
+  // Subtle runic corner rivets
+  ctx.fillStyle = "rgba(160, 240, 255, 0.4)";
+  ctx.fillRect(bx + 4, by + 3, 3, 3);
+  ctx.fillRect(bx + bw - 7, by + 3, 3, 3);
+  ctx.restore();
 
-  if (b.type==='moving') {
-    const pulse=0.5+0.5*Math.sin(frameCount*0.1);
+  // 6. Moving Platform Glowing Arcane Runes
+  if (b.type === 'moving') {
+    const pulse = 0.5 + 0.5 * Math.sin(frameCount * 0.1);
     ctx.save();
-    ctx.shadowColor=`rgba(0,220,255,${0.6*pulse+0.2})`; ctx.shadowBlur=16;
-    ctx.strokeStyle=`rgba(0,220,255,${0.5*pulse+0.2})`; ctx.lineWidth=2.5;
-    ctx.strokeRect(bx,by,bw,bh);
+    ctx.shadowColor = `rgba(0, 220, 255, ${0.65 * pulse + 0.25})`;
+    ctx.shadowBlur = 18;
+    ctx.strokeStyle = `rgba(0, 220, 255, ${0.55 * pulse + 0.25})`;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(bx, by, bw, bh);
+
+    // Glowing core crystal indicator
+    ctx.fillStyle = `rgba(160, 240, 255, ${0.4 * pulse + 0.3})`;
+    ctx.beginPath();
+    ctx.arc(bx + bw / 2, by + bh / 2, 4 + pulse * 2, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
+
+    // Register dynamic arcane light
+    addLight(bx + bw / 2, by + bh / 2, 80 + pulse * 30, "rgba(0, 200, 255, 0.18)");
   }
 }
 
-/* ================= DRAW: LAVA FLOOR ================= */
+/* ================= DRAW: DARK FANTASY LIQUID CAUSTICS & LAVA ================= */
 function drawLava() {
-  const t=frameCount*0.04;
-  const lavaY=canvas.height-28;
-  const h=40;
-  const grad=ctx.createLinearGradient(0,lavaY,0,canvas.height);
-  grad.addColorStop(0,"#ff4500"); grad.addColorStop(0.4,"#cc2200"); grad.addColorStop(1,"#550000");
-  ctx.fillStyle=grad;
-  ctx.beginPath(); ctx.moveTo(0,canvas.height); ctx.lineTo(0,lavaY);
-  for (let x=0;x<=canvas.width;x+=20)
-    ctx.lineTo(x, lavaY + Math.sin(t+x*0.04)*6);
-  ctx.lineTo(canvas.width,canvas.height); ctx.closePath(); ctx.fill();
+  const t = frameCount * 0.04;
+  const lavaY = canvas.height - 28;
+  const h = 42;
 
-  const glow=ctx.createLinearGradient(0,lavaY-20,0,lavaY+h);
-  glow.addColorStop(0,"rgba(255,100,0,0.0)");
-  glow.addColorStop(0.5,"rgba(255,80,0,0.35)");
-  glow.addColorStop(1,"rgba(200,0,0,0.0)");
-  ctx.fillStyle=glow;
-  ctx.fillRect(0,lavaY-20,canvas.width,h+20);
+  // Layer 1: Deep molten magma body gradient
+  const deepGrad = ctx.createLinearGradient(0, lavaY - 10, 0, canvas.height);
+  deepGrad.addColorStop(0, "#ff5500");
+  deepGrad.addColorStop(0.25, "#d62400");
+  deepGrad.addColorStop(0.65, "#770000");
+  deepGrad.addColorStop(1, "#2a0000");
+  ctx.fillStyle = deepGrad;
+
+  ctx.beginPath();
+  ctx.moveTo(0, canvas.height);
+  ctx.lineTo(0, lavaY);
+  for (let x = 0; x <= canvas.width; x += 16) {
+    const wave = Math.sin(t + x * 0.035) * 5 + Math.sin(t * 1.5 + x * 0.07) * 2.5;
+    ctx.lineTo(x, lavaY + wave);
+  }
+  ctx.lineTo(canvas.width, canvas.height);
+  ctx.closePath();
+  ctx.fill();
+
+  // Layer 2: Glowing hot crust edge line
+  ctx.save();
+  ctx.shadowColor = "#ff7700";
+  ctx.shadowBlur = 12;
+  ctx.strokeStyle = "rgba(255, 230, 140, 0.85)";
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  for (let x = 0; x <= canvas.width; x += 16) {
+    const wave = Math.sin(t + x * 0.035) * 5 + Math.sin(t * 1.5 + x * 0.07) * 2.5;
+    if (x === 0) ctx.moveTo(x, lavaY + wave);
+    else ctx.lineTo(x, lavaY + wave);
+  }
+  ctx.stroke();
+  ctx.restore();
+
+  // Layer 3: Rising heat plume atmospheric gradient
+  const glow = ctx.createLinearGradient(0, lavaY - 55, 0, canvas.height);
+  glow.addColorStop(0, "rgba(255, 60, 0, 0)");
+  glow.addColorStop(0.4, "rgba(255, 80, 0, 0.22)");
+  glow.addColorStop(0.8, "rgba(255, 120, 0, 0.38)");
+  glow.addColorStop(1, "rgba(200, 20, 0, 0)");
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, lavaY - 55, canvas.width, h + 55);
+
+  // Register wide dynamic light bar across floor
+  addLight(canvas.width * 0.25, lavaY, 180, "rgba(255, 80, 0, 0.16)");
+  addLight(canvas.width * 0.75, lavaY, 180, "rgba(255, 80, 0, 0.16)");
 }
 
 /* ================= DRAW: HUD ================= */
@@ -2147,6 +2337,7 @@ function draw() {
   ctx.shadowColor="gold"; ctx.shadowBlur=30+25*gp;
   if (castleImg) ctx.drawImage(castleImg, castle.x, castle.y, castle.w, castle.h);
   ctx.restore();
+  addLight(castle.x + castle.w / 2, castle.y + castle.h - 40, 160 + gp * 40, "rgba(255, 215, 0, 0.25)");
 
   /* Dark Doorway Graphic for Entrance Animation */
   if (isEnteringCastle || levelWin || fadingOut) {
@@ -2178,6 +2369,7 @@ function draw() {
        dragonObj.hitTimer--;
     }
 
+    addLight(dragonObj.x + dragonObj.w / 2, dragonObj.y + dragonObj.h / 2, 180, "rgba(180, 0, 255, 0.28)");
     if (dragonImg) {
       if (dragonObj.moveDir > 0) {
           ctx.translate(dragonObj.x + dragonObj.w, dragonObj.y);
@@ -2190,9 +2382,15 @@ function draw() {
     ctx.restore();
   }
 
-  /* Magic Spells & Fireballs */
-  playerSpells.forEach(s=>s.draw());
-  fireballs.forEach(fb=>fb.draw());
+  /* Magic Spells & Fireballs (with 2.5D dynamic illumination) */
+  playerSpells.forEach(s => {
+    s.draw();
+    addLight(s.x + 8, s.y + 8, 90, "rgba(0, 240, 255, 0.35)");
+  });
+  fireballs.forEach(fb => {
+    fb.draw();
+    addLight(fb.x + 12, fb.y + 12, 110, "rgba(255, 90, 0, 0.40)");
+  });
 
   /* Player trails */
   const wizImg = images.wizard;
@@ -2230,6 +2428,11 @@ function draw() {
 
         const drawX = player.x + PLAYER_CONFIG.offsetX;
         const drawY = player.y + PLAYER_CONFIG.offsetY + bobY;
+
+        const staffX = player.facing ? (player.x + player.w + 6) : (player.x - 6);
+        const staffY = player.y + 18 + bobY;
+        addLight(staffX, staffY, 95, "rgba(160, 240, 255, 0.28)");
+        addLight(player.x + player.w / 2, player.y + player.h / 2, 70, "rgba(180, 100, 255, 0.16)");
 
         if (wizImg) {
           if (!player.facing) {
@@ -2272,58 +2475,22 @@ function draw() {
     drawLives();
   }
 
-  /* Game Over */
-  if (gameOver) {
+  /* Backdrop Dimming during Game Over / Level Win (HTML UI panels take precedence) */
+  if (gameOver || levelWin || finalWin) {
     ctx.save();
-    ctx.fillStyle="rgba(0,0,0,0.6)"; ctx.fillRect(0,0,canvas.width,canvas.height);
-    ctx.textAlign="center";
-    ctx.shadowColor="#ff0000"; ctx.shadowBlur=35;
-    ctx.fillStyle="#ff4444"; ctx.font="bold 64px serif";
-    ctx.fillText("GAME OVER",canvas.width/2,canvas.height/2-15);
-    ctx.shadowBlur=0;
-    ctx.fillStyle="white"; ctx.font="bold 24px Arial";
-    ctx.fillText("You Ran out of Lives!",canvas.width/2,canvas.height/2+35);
-    ctx.fillStyle="#ccc"; ctx.font="20px Arial";
-    ctx.fillText("Press R or Double-Tap to Restart",canvas.width/2,canvas.height/2+75);
+    ctx.fillStyle = "rgba(4, 3, 10, 0.65)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.restore();
   }
 
-  /* Level Complete */
-  if (levelWin && !finalWin) {
-    ctx.save();
-    ctx.textAlign="center";
-    const fade = Math.min(1, winTimer / 30);
-    ctx.globalAlpha = fade;
+  /* 2.5D Lighting Pass (Dynamic light emission blending) */
+  renderLightingPass();
 
-    ctx.shadowColor="rgba(0,0,0,0.8)";
-    ctx.shadowBlur=8;
-    ctx.shadowOffsetY=4;
-    ctx.fillStyle="#ffd700";
-    ctx.font="bold 54px Arial";
-    ctx.fillText("LEVEL COMPLETED!", canvas.width/2, canvas.height/2);
-    ctx.restore();
-  }
+  /* 2.5D Dark Fantasy Atmospheric Embers & Spores */
+  drawAtmosphericEmbers();
 
-  /* Final Win */
-  if (finalWin) {
-    ctx.save(); ctx.textAlign="center";
-    const text="DUNGEON CLEARED!";
-    const charW=38;
-    const startX=canvas.width/2 - (text.length*charW)/2;
-    ctx.font="bold 64px serif";
-    for (let ci=0;ci<text.length;ci++) {
-      const wy=Math.sin(frameCount*0.08+ci*0.5)*9;
-      ctx.fillStyle=`hsl(${(frameCount*2+ci*15)%360},100%,65%)`;
-      ctx.shadowColor=ctx.fillStyle; ctx.shadowBlur=18;
-      ctx.fillText(text[ci], startX+ci*charW, canvas.height/2+wy);
-    }
-    ctx.shadowBlur=0;
-    ctx.fillStyle="white"; ctx.font="28px Arial";
-    ctx.fillText("The Wizard is Victorious!",canvas.width/2,canvas.height/2+58);
-    ctx.fillStyle="#aaa"; ctx.font="20px Arial";
-    ctx.fillText("Press R or Double-Tap to Play Again",canvas.width/2,canvas.height/2+96);
-    ctx.restore();
-  }
+  /* 2.5D Gothic Vignette & Atmospheric Depth Grading */
+  drawDarkFantasyVignette();
 
   /* Fade overlay */
   if (fadeAlpha>0) {
