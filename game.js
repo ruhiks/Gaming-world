@@ -1055,6 +1055,393 @@ function updateAtmosphere() {
   }
 }
 
+/* ================= ENVIRONMENTAL FLUIDS & ATMOSPHERIC SIMULATION (PHASE 3) ================= */
+// 1. Dynamic Lava Bubbling & Molten Surface Physics
+let lavaBubbles = [];
+let lavaCrustPlates = [];
+
+function initLavaCrustPlates() {
+  lavaCrustPlates = [];
+  const count = 7;
+  const spacing = (canvas.width + 120) / count;
+  for (let i = 0; i < count; i++) {
+    lavaCrustPlates.push({
+      x: i * spacing - 40,
+      w: 45 + Math.random() * 35,
+      h: 9 + Math.random() * 6,
+      vx: 0.18 + Math.random() * 0.14,
+      seed: Math.random() * 10
+    });
+  }
+}
+initLavaCrustPlates();
+
+function updateLavaFX() {
+  if (!hasLava) return;
+
+  // Molten Bubble Spawning
+  if (lavaBubbles.length < 8 && Math.random() < 0.08) {
+    lavaBubbles.push({
+      x: Math.random() * (canvas.width - 40) + 20,
+      radius: 0.8,
+      maxRadius: 5 + Math.random() * 8,
+      growSpeed: 0.12 + Math.random() * 0.08,
+      life: 0,
+      maxLife: 45 + Math.random() * 25
+    });
+  }
+
+  // Bubble Update & Bursting
+  for (let i = lavaBubbles.length - 1; i >= 0; i--) {
+    const b = lavaBubbles[i];
+    b.life++;
+    if (b.radius < b.maxRadius) {
+      b.radius += b.growSpeed;
+    }
+    if (b.life >= b.maxLife) {
+      // Pop! Emit embers & warm transient light
+      const lavaY = canvas.height - 28 + Math.sin(frameCount * 0.04 + b.x * 0.035) * 5;
+      for (let k = 0; k < 5; k++) {
+        const ang = -Math.PI * 0.5 + (Math.random() - 0.5) * 1.2;
+        const spd = Math.random() * 2.5 + 1.2;
+        particles.push({
+          x: b.x,
+          y: lavaY - b.radius,
+          vx: Math.cos(ang) * spd,
+          vy: Math.sin(ang) * spd,
+          life: 25 + Math.random() * 15,
+          maxLife: 40,
+          color: Math.random() > 0.4 ? "#ffd700" : "#ff4500",
+          size: Math.random() * 2.2 + 1
+        });
+      }
+      lavaBubbles.splice(i, 1);
+    }
+  }
+
+  // Crust Plate Drift
+  for (let i = 0; i < lavaCrustPlates.length; i++) {
+    const p = lavaCrustPlates[i];
+    p.x += p.vx;
+    if (p.x > canvas.width + 50) {
+      p.x = -p.w - 20;
+    }
+  }
+}
+
+// 2. Subterranean Flowing Water & Waterfall Caverns
+const waterfalls = [
+  { x: 180, width: 28, topY: 0, bottomY: 520 },
+  { x: 530, width: 36, topY: 0, bottomY: 520 }
+];
+
+let waterMistParticles = [];
+
+function updateWaterFX() {
+  if (hasLava) return;
+
+  // Waterfall impact mist spray
+  for (let i = 0; i < waterfalls.length; i++) {
+    const wf = waterfalls[i];
+    if (waterMistParticles.length < 24 && Math.random() < 0.35) {
+      waterMistParticles.push({
+        x: wf.x + Math.random() * wf.width,
+        y: wf.bottomY - 4,
+        vx: (Math.random() - 0.5) * 1.8,
+        vy: -(Math.random() * 1.5 + 0.6),
+        alpha: Math.random() * 0.5 + 0.3,
+        life: 30 + Math.random() * 20,
+        maxLife: 50,
+        size: Math.random() * 2.5 + 1.2
+      });
+    }
+  }
+
+  // Update mist
+  for (let i = waterMistParticles.length - 1; i >= 0; i--) {
+    const m = waterMistParticles[i];
+    m.x += m.vx;
+    m.y += m.vy;
+    m.life--;
+    m.alpha = (m.life / m.maxLife) * 0.6;
+    if (m.life <= 0) waterMistParticles.splice(i, 1);
+  }
+}
+
+function drawBackgroundWaterfalls() {
+  if (hasLava) return;
+  const t = frameCount * 0.08;
+
+  ctx.save();
+  for (let i = 0; i < waterfalls.length; i++) {
+    const wf = waterfalls[i];
+
+    // Translucent waterfall stream
+    const wfGrad = ctx.createLinearGradient(wf.x, 0, wf.x + wf.width, 0);
+    wfGrad.addColorStop(0, "rgba(10, 45, 75, 0.25)");
+    wfGrad.addColorStop(0.3, "rgba(40, 140, 195, 0.45)");
+    wfGrad.addColorStop(0.7, "rgba(80, 200, 240, 0.55)");
+    wfGrad.addColorStop(1, "rgba(10, 45, 75, 0.25)");
+
+    ctx.fillStyle = wfGrad;
+    ctx.fillRect(wf.x, wf.topY, wf.width, wf.bottomY - wf.topY);
+
+    // Cascading animated foam lines
+    ctx.strokeStyle = "rgba(180, 240, 255, 0.35)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let y = wf.topY; y < wf.bottomY; y += 18) {
+      const off = ((y + frameCount * 4) % (wf.bottomY - wf.topY));
+      const curY = wf.topY + off;
+      const waveX = Math.sin(t + curY * 0.05) * 3;
+      ctx.moveTo(wf.x + 4 + waveX, curY);
+      ctx.lineTo(wf.x + wf.width - 4 + waveX, curY);
+    }
+    ctx.stroke();
+
+    // Soft ambient water light
+    addLight(wf.x + wf.width / 2, wf.bottomY - 20, 110, "rgba(0, 160, 240, 0.12)");
+  }
+
+  // Draw mist spray particles
+  for (let i = 0; i < waterMistParticles.length; i++) {
+    const m = waterMistParticles[i];
+    ctx.fillStyle = `rgba(160, 230, 255, ${m.alpha})`;
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, m.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawSubterraneanWater() {
+  const t = frameCount * 0.035;
+  const waterY = canvas.height - 24;
+  const h = 38;
+
+  // Layer 1: Subterranean deep pool gradient
+  const deepGrad = ctx.createLinearGradient(0, waterY - 8, 0, canvas.height);
+  deepGrad.addColorStop(0, "#00486b");
+  deepGrad.addColorStop(0.3, "#002847");
+  deepGrad.addColorStop(0.7, "#001328");
+  deepGrad.addColorStop(1, "#000714");
+  ctx.fillStyle = deepGrad;
+
+  ctx.beginPath();
+  ctx.moveTo(0, canvas.height);
+  ctx.lineTo(0, waterY);
+  for (let x = 0; x <= canvas.width; x += 16) {
+    const wave = Math.sin(t + x * 0.028) * 4 + Math.sin(t * 1.6 + x * 0.06) * 2;
+    ctx.lineTo(x, waterY + wave);
+  }
+  ctx.lineTo(canvas.width, canvas.height);
+  ctx.closePath();
+  ctx.fill();
+
+  // Layer 2: Shimmering water caustics & surface crest
+  ctx.save();
+  ctx.shadowColor = "#00d4ff";
+  ctx.shadowBlur = 10;
+  ctx.strokeStyle = "rgba(160, 240, 255, 0.75)";
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  for (let x = 0; x <= canvas.width; x += 16) {
+    const wave = Math.sin(t + x * 0.028) * 4 + Math.sin(t * 1.6 + x * 0.06) * 2;
+    if (x === 0) ctx.moveTo(x, waterY + wave);
+    else ctx.lineTo(x, waterY + wave);
+  }
+  ctx.stroke();
+  ctx.restore();
+
+  // Layer 3: Ethereal blue ambient illumination
+  addLight(canvas.width * 0.3, waterY, 150, "rgba(0, 150, 230, 0.14)");
+  addLight(canvas.width * 0.7, waterY, 150, "rgba(0, 150, 230, 0.14)");
+}
+
+// 3. Cavern Moisture Condensation & Ripple Rings
+let cavernDroplets = [];
+let cavernRipples = [];
+
+function updateCavernMoisture() {
+  // Spawn droplet from ceiling
+  if (cavernDroplets.length < 5 && Math.random() < 0.04) {
+    cavernDroplets.push({
+      x: Math.random() * (canvas.width - 60) + 30,
+      y: 0,
+      vy: 0.8,
+      size: Math.random() * 1.5 + 1.2
+    });
+  }
+
+  // Update Droplets
+  for (let i = cavernDroplets.length - 1; i >= 0; i--) {
+    const d = cavernDroplets[i];
+    d.vy += 0.18; // gravity on droplet
+    d.y += d.vy;
+
+    // Check collision with platform or floor
+    let hitGround = false;
+    let hitY = canvas.height - 24;
+
+    for (let k = 0; k < blocks.length; k++) {
+      const b = blocks[k];
+      if (d.x >= b.x && d.x <= b.x + b.w && d.y >= b.y && d.y <= b.y + 12) {
+        hitGround = true;
+        hitY = b.y;
+        break;
+      }
+    }
+    if (d.y >= hitY) hitGround = true;
+
+    if (hitGround) {
+      if (hasLava && hitY >= canvas.height - 30) {
+        // Vaporizes on lava!
+        for (let s = 0; s < 3; s++) {
+          particles.push({
+            x: d.x, y: hitY - 2,
+            vx: (Math.random() - 0.5) * 1.5, vy: -Math.random() * 1.5 - 0.5,
+            life: 18, maxLife: 20,
+            color: "rgba(220, 220, 220, 0.6)", size: 1.5
+          });
+        }
+      } else {
+        // Creates subtle expanding ripple
+        cavernRipples.push({
+          x: d.x,
+          y: hitY,
+          radius: 1,
+          maxRadius: 10 + Math.random() * 4,
+          alpha: 0.65
+        });
+      }
+      cavernDroplets.splice(i, 1);
+    }
+  }
+
+  // Update Ripples
+  for (let i = cavernRipples.length - 1; i >= 0; i--) {
+    const r = cavernRipples[i];
+    r.radius += 0.5;
+    r.alpha = (1 - r.radius / r.maxRadius) * 0.65;
+    if (r.radius >= r.maxRadius) {
+      cavernRipples.splice(i, 1);
+    }
+  }
+}
+
+function drawCavernMoisture() {
+  ctx.save();
+  // Draw falling water beads
+  ctx.fillStyle = "rgba(180, 240, 255, 0.85)";
+  ctx.shadowColor = "cyan";
+  ctx.shadowBlur = 4;
+  for (let i = 0; i < cavernDroplets.length; i++) {
+    const d = cavernDroplets[i];
+    ctx.beginPath();
+    ctx.ellipse(d.x, d.y, d.size * 0.7, d.size * 1.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Draw expanding ripple rings
+  ctx.lineWidth = 1.2;
+  for (let i = 0; i < cavernRipples.length; i++) {
+    const r = cavernRipples[i];
+    ctx.strokeStyle = `rgba(140, 230, 255, ${r.alpha})`;
+    ctx.beginPath();
+    ctx.ellipse(r.x, r.y, r.radius * 1.8, r.radius * 0.6, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// 4. Arcane Castle Portal / Void Vortex FX
+let portalVortexParticles = [];
+
+function updatePortalVortex() {
+  if (!castle || castle.x === undefined) return;
+  const cx = castle.x + castle.w / 2;
+  const cy = castle.y + castle.h - 40;
+
+  const spawnCount = isEnteringCastle ? 3 : (Math.random() < 0.65 ? 1 : 0);
+  for (let i = 0; i < spawnCount; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 32 + Math.random() * 26;
+    portalVortexParticles.push({
+      cx, cy,
+      angle,
+      dist,
+      speed: 0.05 + Math.random() * 0.04,
+      decay: 0.55 + Math.random() * 0.35,
+      hue: Math.random() > 0.4 ? (Math.random() * 30 + 40) : (Math.random() * 45 + 265), // gold or arcane amethyst
+      size: Math.random() * 2.2 + 1
+    });
+  }
+
+  // Update vortex spiraling inward
+  for (let i = portalVortexParticles.length - 1; i >= 0; i--) {
+    const p = portalVortexParticles[i];
+    p.angle += p.speed * (40 / Math.max(10, p.dist)); // angular acceleration inward
+    p.dist -= p.decay * (isEnteringCastle ? 1.8 : 1);
+    if (p.dist <= 3) {
+      portalVortexParticles.splice(i, 1);
+    }
+  }
+}
+
+function drawPortalVortex(openRatio) {
+  if (!castle || castle.x === undefined) return;
+  const doorW = 44 * Math.max(0.2, openRatio);
+  const doorH = 75;
+  const doorX = castle.x + (castle.w / 2) - (doorW / 2);
+  const doorY = castle.y + castle.h - doorH - 4;
+  const cx = castle.x + castle.w / 2;
+  const cy = doorY + doorH * 0.55;
+
+  ctx.save();
+  // 1. Gothic Arch Doorway Frame Cutout
+  ctx.beginPath();
+  ctx.arc(cx, doorY + 22, doorW * 0.5, Math.PI, 0, false);
+  ctx.lineTo(doorX + doorW, doorY + doorH);
+  ctx.lineTo(doorX, doorY + doorH);
+  ctx.closePath();
+  ctx.clip();
+
+  // 2. Swirling Deep Cosmic Event Horizon (Void Gradient)
+  const pulse = 0.5 + 0.5 * Math.sin(frameCount * 0.1);
+  const vortexGrad = ctx.createRadialGradient(cx, cy, 2, cx, cy, 38);
+  vortexGrad.addColorStop(0, "#020108");
+  vortexGrad.addColorStop(0.35, isEnteringCastle ? "#3c0066" : "#1a0b36");
+  vortexGrad.addColorStop(0.75, isEnteringCastle ? "#b57cff" : "#5a308c");
+  vortexGrad.addColorStop(1, "rgba(255, 215, 0, 0.85)");
+
+  ctx.fillStyle = vortexGrad;
+  ctx.fillRect(doorX - 10, doorY - 10, doorW + 20, doorH + 20);
+
+  // 3. Spiraling Inward Cosmic Arcane Sparks
+  for (let i = 0; i < portalVortexParticles.length; i++) {
+    const p = portalVortexParticles[i];
+    const px = cx + Math.cos(p.angle) * (p.dist * (doorW / 44));
+    const py = cy + Math.sin(p.angle) * (p.dist * 0.8);
+    const alpha = Math.min(1, p.dist / 12);
+
+    ctx.fillStyle = `hsla(${p.hue}, 100%, 72%, ${alpha})`;
+    ctx.shadowColor = `hsla(${p.hue}, 100%, 60%, 0.8)`;
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.arc(px, py, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 4. Arcane Doorway Runic Rim
+  ctx.strokeStyle = "rgba(255, 215, 0, 0.7)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.restore();
+
+  // 5. Dynamic light emission from portal
+  addLight(cx, cy, 140 + pulse * 50, isEnteringCastle ? "rgba(180, 80, 255, 0.45)" : "rgba(255, 215, 0, 0.32)");
+}
+
 // Lighting Map: collects light sources each frame and renders a soft additive lighting pass
 const lightSources = [];
 function addLight(x, y, radius, color, intensity=1.0) {
@@ -1269,6 +1656,7 @@ function loadLevel(i) {
   } else { dragonObj.active=false; }
 
   fireballs=[]; particles=[]; playerTrails=[]; fireworks=[]; playerSpells=[];
+  lavaBubbles = []; waterMistParticles = []; cavernDroplets = []; cavernRipples = []; portalVortexParticles = [];
 
   /* Reset Player Combat & Positioning */
   player.x=l.start.x; player.y=l.start.y; player.vx=0; player.vy=0;
@@ -2040,12 +2428,15 @@ function update() {
       }
   }
 
-  updateParticles();
-}
-
-function updateAtmosphereAndParticles() {
   updateAtmosphere();
-  updateAtmosphereAndParticles();
+  if (hasLava) {
+    updateLavaFX();
+  } else {
+    updateWaterFX();
+  }
+  updateCavernMoisture();
+  updatePortalVortex();
+  updateParticles();
 }
 
 function updateParticles() {
@@ -2171,7 +2562,7 @@ function drawLava() {
   // Layer 1: Deep molten magma body gradient
   const deepGrad = ctx.createLinearGradient(0, lavaY - 10, 0, canvas.height);
   deepGrad.addColorStop(0, "#ff5500");
-  deepGrad.addColorStop(0.25, "#d62400");
+  deepGrad.addColorStop(0.22, "#d62400");
   deepGrad.addColorStop(0.65, "#770000");
   deepGrad.addColorStop(1, "#2a0000");
   ctx.fillStyle = deepGrad;
@@ -2187,6 +2578,29 @@ function drawLava() {
   ctx.closePath();
   ctx.fill();
 
+  // Layer 1.5: Floating Obsidian Crust Plates (Dark cooling volcanic rock rafts)
+  ctx.save();
+  for (let i = 0; i < lavaCrustPlates.length; i++) {
+    const plate = lavaCrustPlates[i];
+    const wave = Math.sin(t + plate.x * 0.035) * 5 + Math.sin(t * 1.5 + plate.x * 0.07) * 2.5;
+    const py = lavaY + wave - plate.h * 0.4;
+
+    // Dark volcanic basalt plate body
+    ctx.fillStyle = "#1e131d";
+    ctx.beginPath();
+    ctx.fillRect(plate.x, py, plate.w, plate.h);
+
+    // Hot incandescent fissure cracks along plate perimeter
+    ctx.strokeStyle = "rgba(255, 95, 10, 0.65)";
+    ctx.lineWidth = 1.2;
+    ctx.strokeRect(plate.x, py, plate.w, plate.h);
+
+    // Top cool ash texture
+    ctx.fillStyle = "rgba(45, 30, 40, 0.75)";
+    ctx.fillRect(plate.x + 2, py + 1, plate.w - 4, plate.h * 0.38);
+  }
+  ctx.restore();
+
   // Layer 2: Glowing hot crust edge line
   ctx.save();
   ctx.shadowColor = "#ff7700";
@@ -2200,6 +2614,35 @@ function drawLava() {
     else ctx.lineTo(x, lavaY + wave);
   }
   ctx.stroke();
+  ctx.restore();
+
+  // Layer 2.5: Dynamic Molten Lava Bubbles
+  ctx.save();
+  for (let i = 0; i < lavaBubbles.length; i++) {
+    const b = lavaBubbles[i];
+    const wave = Math.sin(t + b.x * 0.035) * 5 + Math.sin(t * 1.5 + b.x * 0.07) * 2.5;
+    const by = lavaY + wave - b.radius * 0.6;
+
+    const bGrad = ctx.createRadialGradient(b.x - b.radius * 0.3, by - b.radius * 0.3, 0, b.x, by, b.radius);
+    bGrad.addColorStop(0, "#fff5bb");
+    bGrad.addColorStop(0.45, "#ff7700");
+    bGrad.addColorStop(0.9, "#bb1100");
+    bGrad.addColorStop(1, "rgba(90, 0, 0, 0.8)");
+
+    ctx.fillStyle = bGrad;
+    ctx.beginPath();
+    ctx.arc(b.x, by, b.radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Specular bubble highlight
+    ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+    ctx.beginPath();
+    ctx.arc(b.x - b.radius * 0.35, by - b.radius * 0.35, Math.max(0.6, b.radius * 0.28), 0, Math.PI * 2);
+    ctx.fill();
+
+    // Bubble dynamic warmth
+    addLight(b.x, by - 6, b.radius * 6 + 25, "rgba(255, 120, 20, 0.22)");
+  }
   ctx.restore();
 
   // Layer 3: Rising heat plume atmospheric gradient
@@ -2315,8 +2758,15 @@ function draw() {
     ctx.restore();
   }
 
-  /* Lava */
-  if (hasLava) drawLava();
+  /* Background Waterfalls (Subterranean Caverns) */
+  if (!hasLava) drawBackgroundWaterfalls();
+
+  /* Environmental Fluids (Lava or Subterranean Water) */
+  if (hasLava) {
+    drawLava();
+  } else {
+    drawSubterraneanWater();
+  }
 
   /* 3D Platforms */
   blocks.forEach(b => draw3DBlock(b));
@@ -2339,21 +2789,11 @@ function draw() {
   ctx.restore();
   addLight(castle.x + castle.w / 2, castle.y + castle.h - 40, 160 + gp * 40, "rgba(255, 215, 0, 0.25)");
 
-  /* Dark Doorway Graphic for Entrance Animation */
-  if (isEnteringCastle || levelWin || fadingOut) {
-      let openRatio = castleDoorOpen;
-      if (levelWin || fadingOut) openRatio = 1;
-
-      ctx.save();
-      ctx.fillStyle = "black";
-      ctx.shadowColor = "black"; ctx.shadowBlur = 10;
-
-      const doorW = 44 * openRatio;
-      const doorH = 75;
-      const doorX = castle.x + (castle.w/2) - (doorW/2);
-      const doorY = castle.y + castle.h - doorH - 4;
-      ctx.fillRect(doorX, doorY, doorW, doorH);
-      ctx.restore();
+  /* Arcane Castle Portal / Void Vortex */
+  if (isEnteringCastle || levelWin || fadingOut || castleDoorOpen > 0) {
+    let openRatio = castleDoorOpen;
+    if (levelWin || fadingOut || isEnteringCastle) openRatio = 1;
+    drawPortalVortex(openRatio);
   }
 
   /* Dragon */
@@ -2482,6 +2922,9 @@ function draw() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.restore();
   }
+
+  /* Cavern Moisture & Stalactite Condensation Droplets */
+  drawCavernMoisture();
 
   /* 2.5D Lighting Pass (Dynamic light emission blending) */
   renderLightingPass();
