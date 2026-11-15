@@ -1056,6 +1056,40 @@ function updateAtmosphere() {
 }
 
 /* ================= ENVIRONMENTAL FLUIDS & ATMOSPHERIC SIMULATION (PHASE 3) ================= */
+// 0. Moving Multi-Layer Volumetric Cavern Fog
+const fogBands = [
+  { y: 60,  height: 90,  speed: 0.22, x: 0,   alpha: 0.07, hue: 250 },
+  { y: 220, height: 120, speed: -0.32, x: 140, alpha: 0.09, hue: 230 },
+  { y: 420, height: 100, speed: 0.42, x: 80,  alpha: 0.11, hue: 210 }
+];
+
+function updateVolumetricFog() {
+  for (let i = 0; i < fogBands.length; i++) {
+    const fb = fogBands[i];
+    fb.x += fb.speed;
+    if (fb.x > canvas.width) fb.x = -canvas.width;
+    if (fb.x < -canvas.width) fb.x = canvas.width;
+  }
+}
+
+function drawVolumetricFog() {
+  ctx.save();
+  for (let i = 0; i < fogBands.length; i++) {
+    const fb = fogBands[i];
+    const wave = Math.sin(frameCount * 0.02 + i) * 8;
+    const fy = fb.y + wave;
+
+    const grad = ctx.createLinearGradient(0, fy, 0, fy + fb.height);
+    grad.addColorStop(0, "rgba(0,0,0,0)");
+    grad.addColorStop(0.5, `hsla(${fb.hue}, 40%, 30%, ${fb.alpha})`);
+    grad.addColorStop(1, "rgba(0,0,0,0)");
+
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, fy, canvas.width, fb.height);
+  }
+  ctx.restore();
+}
+
 // 1. Dynamic Lava Bubbling & Molten Surface Physics
 let lavaBubbles = [];
 let lavaCrustPlates = [];
@@ -1253,6 +1287,28 @@ function drawSubterraneanWater() {
   ctx.stroke();
   ctx.restore();
 
+  // Layer 2.5: Dynamic Water Surface Reflections (Castle Portal & Staff Light)
+  ctx.save();
+  if (castle && castle.x !== undefined) {
+    const cRefX = castle.x + castle.w / 2;
+    const cRefWave = Math.sin(t + cRefX * 0.028) * 3;
+    const cGrad = ctx.createRadialGradient(cRefX, waterY + 6 + cRefWave, 2, cRefX, waterY + 6 + cRefWave, 45);
+    cGrad.addColorStop(0, "rgba(255, 215, 0, 0.35)");
+    cGrad.addColorStop(0.6, "rgba(255, 170, 0, 0.15)");
+    cGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = cGrad;
+    ctx.fillRect(cRefX - 50, waterY, 100, 24);
+  }
+  const pRefX = player.x + player.w / 2;
+  const pRefWave = Math.sin(t + pRefX * 0.028) * 3;
+  const pGrad = ctx.createRadialGradient(pRefX, waterY + 4 + pRefWave, 1, pRefX, waterY + 4 + pRefWave, 35);
+  pGrad.addColorStop(0, "rgba(0, 240, 255, 0.30)");
+  pGrad.addColorStop(0.7, "rgba(0, 150, 255, 0.10)");
+  pGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = pGrad;
+  ctx.fillRect(pRefX - 40, waterY, 80, 20);
+  ctx.restore();
+
   // Layer 3: Ethereal blue ambient illumination
   addLight(canvas.width * 0.3, waterY, 150, "rgba(0, 150, 230, 0.14)");
   addLight(canvas.width * 0.7, waterY, 150, "rgba(0, 150, 230, 0.14)");
@@ -1445,7 +1501,8 @@ function drawPortalVortex(openRatio) {
 // Lighting Map: collects light sources each frame and renders a soft additive lighting pass
 const lightSources = [];
 function addLight(x, y, radius, color, intensity=1.0) {
-  lightSources.push({ x, y, radius, color, intensity });
+  const breathing = 0.94 + 0.06 * Math.sin(frameCount * 0.035);
+  lightSources.push({ x, y, radius: radius * breathing, color, intensity });
 }
 
 function renderLightingPass() {
@@ -2429,6 +2486,7 @@ function update() {
   }
 
   updateAtmosphere();
+  updateVolumetricFog();
   if (hasLava) {
     updateLavaFX();
   } else {
@@ -2531,25 +2589,41 @@ function draw3DBlock(b) {
   ctx.fillRect(bx + bw - 7, by + 3, 3, 3);
   ctx.restore();
 
-  // 6. Moving Platform Glowing Arcane Runes
+  // 6. Moving Platform Glowing Arcane Crystal & Specular Facet Glints
   if (b.type === 'moving') {
     const pulse = 0.5 + 0.5 * Math.sin(frameCount * 0.1);
+    const cx = bx + bw / 2, cy = by + bh / 2;
+    const cr = 4.5 + pulse * 2;
+
     ctx.save();
+    // Arcane perimeter rune frame
     ctx.shadowColor = `rgba(0, 220, 255, ${0.65 * pulse + 0.25})`;
     ctx.shadowBlur = 18;
     ctx.strokeStyle = `rgba(0, 220, 255, ${0.55 * pulse + 0.25})`;
     ctx.lineWidth = 2;
     ctx.strokeRect(bx, by, bw, bh);
 
-    // Glowing core crystal indicator
-    ctx.fillStyle = `rgba(160, 240, 255, ${0.4 * pulse + 0.3})`;
+    // Glowing faceted diamond power crystal
+    ctx.fillStyle = `rgba(0, 240, 255, ${0.75 * pulse + 0.25})`;
     ctx.beginPath();
-    ctx.arc(bx + bw / 2, by + bh / 2, 4 + pulse * 2, 0, Math.PI * 2);
+    ctx.moveTo(cx, cy - cr);
+    ctx.lineTo(cx + cr * 0.75, cy);
+    ctx.lineTo(cx, cy + cr);
+    ctx.lineTo(cx - cr * 0.75, cy);
+    ctx.closePath();
     ctx.fill();
+
+    // Specular star glint
+    ctx.strokeStyle = `rgba(255, 255, 255, ${0.75 * pulse})`;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(cx - cr * 1.5, cy); ctx.lineTo(cx + cr * 1.5, cy);
+    ctx.moveTo(cx, cy - cr * 1.5); ctx.lineTo(cx, cy + cr * 1.5);
+    ctx.stroke();
     ctx.restore();
 
     // Register dynamic arcane light
-    addLight(bx + bw / 2, by + bh / 2, 80 + pulse * 30, "rgba(0, 200, 255, 0.18)");
+    addLight(cx, cy, 80 + pulse * 30, "rgba(0, 200, 255, 0.20)");
   }
 }
 
@@ -2736,11 +2810,20 @@ function draw() {
   fog.addColorStop(1,"rgba(0,0,0,0.35)");
   ctx.fillStyle=fog; ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  /* Floating runes */
-  runes.forEach(r=>{
-    ctx.save(); ctx.globalAlpha=r.alpha;
-    ctx.fillStyle="#c8a0ff"; ctx.font=`${r.size}px serif`;
-    ctx.fillText(r.symbol,r.x,r.y); ctx.restore();
+  /* Moving Multi-Layer Volumetric Cavern Fog */
+  drawVolumetricFog();
+
+  /* Floating Glowing Arcane Runes */
+  runes.forEach(r => {
+    const pulse = 0.7 + 0.3 * Math.sin(frameCount * 0.04 + r.x * 0.01);
+    ctx.save();
+    ctx.globalAlpha = r.alpha * pulse;
+    ctx.shadowColor = "rgba(180, 100, 255, 0.85)";
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = "#d8b4fe";
+    ctx.font = `${r.size}px serif`;
+    ctx.fillText(r.symbol, r.x, r.y);
+    ctx.restore();
   });
 
   /* Final win beams */
