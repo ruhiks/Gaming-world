@@ -3066,3 +3066,237 @@ preloadAssets(() => {
 requestAnimationFrame(loop);
 
 });
+
+/* ================= DRAGON BOSS IMPLEMENTATION (Phase 4) ================= */
+
+// Dragon state – added for Phase 4 boss fight
+const dragon = {
+  // Position near the castle (will be set after level loads)
+  x: canvas.width * 0.75,
+  y: canvas.height * 0.4,
+  // Simple hover bobbing parameters
+  hoverAmplitude: 12,
+  hoverSpeed: 0.02,
+  hoverPhase: 0,
+  // Orbit radius around a point (optional circling)
+  orbitRadius: 80,
+  orbitSpeed: 0.015,
+  orbitAngle: 0,
+  // Animation frame (for sprite sheet – currently unused)
+  frame: 0,
+  frameCount: 4,
+  frameTimer: 0,
+  frameDelay: 150, // ms per frame
+  // Fire‑breathing flag
+  breathing: false,
+  // Attack timer (seconds until next attack)
+  attackCooldown: 5,
+  attackTimer: 0,
+  // Visual warning flag
+  warningActive: false,
+  warningTimer: 0,
+  warningDuration: 1.2,
+};
+
+// Particle pools – reuse objects to avoid allocations
+const dragonFlames = [];
+const dragonSmoke = [];
+const dragonSparks = [];
+
+// Helper to create a particle (or reuse one)
+function getParticle(pool, init) {
+  let p = pool.find(pt => !pt.active);
+  if (!p) {
+    p = { active: false };
+    pool.push(p);
+  }
+  Object.assign(p, init, { active: true, life: init.life || 0 });
+  return p;
+}
+
+// Update dragon logic – call from main update loop
+function updateDragon(dt) {
+  // Hover bobbing
+  dragon.hoverPhase += dragon.hoverSpeed * dt * 60; // dt normalized to 60fps steps
+  dragon.y += Math.sin(dragon.hoverPhase) * dragon.hoverAmplitude * (dt * 60) / 60;
+
+  // Optional circular orbit around castle centre (using a fixed point for simplicity)
+  const castleCenterX = canvas.width * 0.75;
+  const castleCenterY = canvas.height * 0.45;
+  dragon.orbitAngle += dragon.orbitSpeed * dt * 60;
+  dragon.x = castleCenterX + Math.cos(dragon.orbitAngle) * dragon.orbitRadius;
+  dragon.y = castleCenterY + Math.sin(dragon.orbitAngle) * dragon.orbitRadius;
+
+  // Attack timing
+  dragon.attackTimer -= dt;
+  if (dragon.attackTimer <= 0) {
+    // Start warning before attack
+    dragon.warningActive = true;
+    dragon.warningTimer = dragon.warningDuration;
+    dragon.attackTimer = dragon.attackCooldown + Math.random() * 2; // randomize next attack interval
+  }
+
+  // Warning phase – visual cue only
+  if (dragon.warningActive) {
+    dragon.warningTimer -= dt;
+    if (dragon.warningTimer <= 0) {
+      dragon.warningActive = false;
+      // Fire breath begins
+      dragon.breathing = true;
+      // Fire for a short burst (0.6 s)
+      setTimeout(() => { dragon.breathing = false; }, 600);
+    }
+  }
+
+  // Spawn fire particles while breathing
+  if (dragon.breathing) {
+    // Limit particle counts to keep performance safe
+    if (dragonFlames.length < 30) {
+      const angle = Math.PI; // left‑to‑right (dragon faces left)
+      const vx = Math.cos(angle) * 2.8;
+      const vy = Math.sin(angle) * 0.4 - 0.6;
+      getParticle(dragonFlames, {
+        x: dragon.x - 30,
+        y: dragon.y - 10,
+        vx, vy,
+        radius: 8 + Math.random() * 4,
+        color: `rgba(255,${100 + Math.random()*55},0,${0.7 + Math.random()*0.3})`,
+        life: 0.35,
+      });
+    }
+    if (dragonSmoke.length < 20) {
+      const angle = Math.PI;
+      const vx = Math.cos(angle) * 1.2;
+      const vy = Math.sin(angle) * 0.2 - 0.2;
+      getParticle(dragonSmoke, {
+        x: dragon.x - 30,
+        y: dragon.y - 8,
+        vx, vy,
+        radius: 12 + Math.random() * 6,
+        color: `rgba(50,50,50,${0.3 + Math.random()*0.2})`,
+        life: 0.6,
+      });
+    }
+    if (dragonSparks.length < 12) {
+      const angle = Math.PI;
+      const vx = Math.cos(angle) * 3.2;
+      const vy = Math.sin(angle) * 0.6 - 0.8;
+      getParticle(dragonSparks, {
+        x: dragon.x - 30,
+        y: dragon.y - 12,
+        vx, vy,
+        radius: 2 + Math.random() * 1,
+        color: `rgba(255,180,0,${0.8 + Math.random()*0.2})`,
+        life: 0.25,
+      });
+    }
+  }
+
+  // Update particle lifetimes and positions
+  const updatePool = (pool, decay) => {
+    for (let i = 0; i < pool.length; i++) {
+      const p = pool[i];
+      if (!p.active) continue;
+      p.x += p.vx * dt * 60;
+      p.y += p.vy * dt * 60;
+      p.life -= dt;
+      if (p.life <= 0) p.active = false;
+    }
+  };
+  updatePool(dragonFlames);
+  updatePool(dragonSmoke);
+  updatePool(dragonSparks);
+}
+
+// Draw dragon – uses the existing dragon image or procedural fallback
+function drawDragon() {
+  const img = images.dragon;
+  if (!img) return;
+  const w = 120; // base render width (adjust as needed)
+  const h = 100; // base render height
+  const cx = img.width / 2; // centre for rotation (if needed)
+  ctx.save();
+  ctx.translate(dragon.x, dragon.y);
+  // Optional flip – dragons face left in our art
+  ctx.scale(-1, 1);
+  ctx.drawImage(img, -w / 2, -h / 2, w, h);
+  ctx.restore();
+
+  // Glowing eyes – two small pulsing circles near the head
+  const eyeOffsetX = -30;
+  const eyeOffsetY = -15;
+  const eyeRadius = 4 + Math.sin(performance.now() / 200) * 1.2;
+  ctx.save();
+  ctx.translate(dragon.x + eyeOffsetX, dragon.y + eyeOffsetY);
+  ctx.fillStyle = 'rgba(255,200,0,0.8)';
+  ctx.beginPath();
+  ctx.arc(0, 0, eyeRadius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Fiery core glow – a larger semi‑transparent circle behind the dragon
+  const coreRadius = 30 + Math.sin(performance.now() / 150) * 6;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = 'rgba(255,80,0,0.15)';
+  ctx.beginPath();
+  ctx.arc(dragon.x, dragon.y, coreRadius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+// Draw dragon fire particles (flames, smoke, sparks)
+function drawDragonFire() {
+  const drawPool = (pool) => {
+    for (const p of pool) {
+      if (!p.active) continue;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  };
+  drawPool(dragonFlames);
+  drawPool(dragonSmoke);
+  drawPool(dragonSparks);
+}
+
+// Visual warning before a fire‑breath attack – a red halo around the dragon
+function drawDragonWarning() {
+  if (!dragon.warningActive) return;
+  const haloRadius = 50 + Math.sin(performance.now() / 120) * 6;
+  ctx.save();
+  ctx.globalAlpha = 0.4 + Math.sin(performance.now() / 80) * 0.2;
+  ctx.strokeStyle = 'rgba(255,0,0,0.8)';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(dragon.x, dragon.y, haloRadius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+// Register dragon glowing core as a dynamic light (integrates with existing lighting system)
+function registerDragonLight() {
+  if (typeof addLight === 'function') {
+    // Light intensity pulses with the same rhythm as the eye glow
+    const intensity = 0.3 + Math.sin(performance.now() / 180) * 0.1;
+    addLight({
+      x: dragon.x,
+      y: dragon.y,
+      radius: 180,
+      color: 'rgba(255,120,30,' + intensity + ')',
+      // The existing addLight now supports a breathing multiplier internally
+    });
+  }
+}
+
+// Hook the new functions into the main game loop – after Phase 3 additions
+// Find the existing `function update()` and insert a call to `updateDragon(dt)`.
+// Also render the dragon after other entities but before the lighting pass.
+
+// Inserted near line 980 (after environmental updates) – will be added via edit_file.
+
+/* ================= END DRAGON BOSS IMPLEMENTATION ================= */
