@@ -1,0 +1,400 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Wizard Dungeon 3D</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+            touch-action: none;
+            user-select: none;
+        }
+        canvas {
+            border: 4px solid #333;
+            background-color: #000;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            border-radius: 4px;
+            max-width: 100vw;
+            max-height: 100vh;
+            object-fit: contain;
+        }
+
+        /* In-Game Pause Button */
+        #btnInGamePause {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            z-index: 20;
+            background: rgba(18, 18, 32, 0.85);
+            border: 1px solid rgba(160, 240, 255, 0.35);
+            border-radius: 8px;
+            color: #fff;
+            padding: 7px 14px;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            transition: all 0.2s ease;
+        }
+        #btnInGamePause:hover {
+            background: rgba(30, 30, 50, 0.95);
+            border-color: rgba(160, 240, 255, 0.8);
+            transform: scale(1.03);
+        }
+
+        /* Audio Controls Bar */
+        #audioControls {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #e0e0ff;
+            user-select: none;
+        }
+        #audioMuteBtn {
+            background: rgba(18, 18, 32, 0.82);
+            border: 1px solid rgba(160, 240, 255, 0.35);
+            border-radius: 8px;
+            color: #fff;
+            padding: 6px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            backdrop-filter: blur(8px);
+            font-size: 14px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            transition: all 0.2s ease;
+        }
+        #audioMuteBtn:hover {
+            background: rgba(30, 30, 50, 0.9);
+            border-color: rgba(160, 240, 255, 0.7);
+            transform: scale(1.03);
+        }
+        #audioMuteBtn.muted {
+            border-color: rgba(255, 100, 100, 0.6);
+            color: #ff8888;
+        }
+        #audioSliders {
+            background: rgba(18, 18, 32, 0.82);
+            border: 1px solid rgba(160, 240, 255, 0.35);
+            border-radius: 8px;
+            padding: 6px 14px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        .audio-slider-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .audio-slider-group label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            opacity: 0.85;
+        }
+        .audio-slider-group input[type="range"] {
+            width: 55px;
+            height: 5px;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        #musicVol {
+            accent-color: #00c8ff;
+        }
+        #sfxVol {
+            accent-color: #ffd700;
+        }
+        .vol-val {
+            font-size: 11px;
+            min-width: 28px;
+            text-align: right;
+            opacity: 0.85;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* UI Overlays */
+        #uiOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+            z-index: 30;
+        }
+        .ui-panel {
+            pointer-events: auto;
+            background: rgba(14, 14, 26, 0.94);
+            border: 2px solid rgba(160, 240, 255, 0.45);
+            box-shadow: 0 16px 45px rgba(0, 0, 0, 0.9), 0 0 24px rgba(0, 200, 255, 0.2);
+            border-radius: 16px;
+            padding: 32px 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            max-width: 90vw;
+            min-width: 300px;
+            backdrop-filter: blur(14px);
+            animation: panelFadeIn 0.22s ease-out;
+        }
+        @keyframes panelFadeIn {
+            from { opacity: 0; transform: scale(0.94); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .ui-title {
+            margin: 0 0 6px 0;
+            font-size: 38px;
+            font-family: serif;
+            font-weight: bold;
+            color: #ffd700;
+            text-shadow: 0 0 18px rgba(255, 215, 0, 0.55);
+            letter-spacing: 2px;
+        }
+        .ui-subtitle {
+            margin: 0 0 22px 0;
+            font-size: 14px;
+            color: #a0f0ff;
+            opacity: 0.9;
+        }
+        .ui-btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+            min-width: 230px;
+        }
+        .ui-btn {
+            background: rgba(26, 26, 44, 0.92);
+            border: 1px solid rgba(160, 240, 255, 0.35);
+            border-radius: 8px;
+            color: #fff;
+            padding: 13px 24px;
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            touch-action: manipulation;
+            user-select: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+        }
+        .ui-btn:hover {
+            background: rgba(0, 200, 255, 0.25);
+            border-color: rgba(160, 240, 255, 0.85);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(0, 200, 255, 0.35);
+        }
+        .ui-btn:active {
+            transform: translateY(1px);
+        }
+        .primary-btn {
+            background: linear-gradient(135deg, rgba(0, 180, 255, 0.45), rgba(160, 32, 240, 0.45));
+            border-color: rgba(0, 200, 255, 0.75);
+        }
+        .primary-btn:hover {
+            background: linear-gradient(135deg, rgba(0, 200, 255, 0.65), rgba(180, 40, 255, 0.65));
+            border-color: #00c8ff;
+        }
+        .ui-footer-hint {
+            margin-top: 18px;
+            font-size: 12px;
+            color: #8888aa;
+        }
+
+        /* Mobile Responsive Adjustments */
+        @media (pointer: coarse), (max-width: 1024px) {
+            #mobileUI {
+                display: flex !important;
+            }
+            #audioControls {
+                top: 8px;
+                right: 8px;
+                gap: 6px;
+            }
+            #btnInGamePause {
+                top: 8px;
+                left: 8px;
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+            #audioSliders {
+                padding: 4px 8px;
+                gap: 8px;
+            }
+            .audio-slider-group input[type="range"] {
+                width: 45px;
+            }
+            .ui-panel {
+                padding: 22px 24px;
+                min-width: 260px;
+            }
+            .ui-title {
+                font-size: 30px;
+            }
+            .ui-btn {
+                padding: 12px 18px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- IN-GAME PAUSE BUTTON -->
+    <button id="btnInGamePause" title="Pause Game (Esc / P)" style="display: none;">
+        ⏸ Pause
+    </button>
+
+    <!-- AUDIO CONTROLS OVERLAY -->
+    <div id="audioControls">
+        <button id="audioMuteBtn" title="Toggle Mute (M)">
+            <span id="muteIcon">🔊</span>
+            <span id="muteText" style="font-size: 12px; font-weight: bold;">Audio</span>
+        </button>
+        <div id="audioSliders">
+            <div class="audio-slider-group">
+                <label for="musicVol">Music</label>
+                <input id="musicVol" type="range" min="0" max="100" value="50">
+                <span id="musicVolVal" class="vol-val">50%</span>
+            </div>
+            <div class="audio-slider-group">
+                <label for="sfxVol">SFX</label>
+                <input id="sfxVol" type="range" min="0" max="100" value="70">
+                <span id="sfxVolVal" class="vol-val">70%</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- UI SCREENS OVERLAY -->
+    <div id="uiOverlay">
+
+        <!-- MAIN MENU SCREEN -->
+        <div id="mainMenuScreen" class="ui-panel" style="display: none;">
+            <h1 class="ui-title">WIZARD DUNGEON</h1>
+            <p class="ui-subtitle">Tower of the Fire Dragon</p>
+            <div class="ui-btn-group">
+                <button id="btnPlay" class="ui-btn primary-btn">⚔ PLAY</button>
+                <button id="btnLevels" class="ui-btn">🏰 LEVELS</button>
+                <button id="btnSettings" class="ui-btn">⚙ SETTINGS</button>
+            </div>
+            <div class="ui-footer-hint">Press [Space] or [Enter] to Play</div>
+        </div>
+
+        <!-- LEVEL SELECT SCREEN -->
+        <div id="levelSelectScreen" class="ui-panel" style="display: none;">
+            <h2 class="ui-title" style="font-size: 28px;">SELECT LEVEL</h2>
+            <div class="level-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; width: 100%;">
+                <button class="ui-btn level-btn" data-level="0">Level 1<br><span style="font-size: 11px; opacity: 0.8; font-weight: normal;">The Entrance</span></button>
+                <button class="ui-btn level-btn" data-level="1">Level 2<br><span style="font-size: 11px; opacity: 0.8; font-weight: normal;">Lava Caverns</span></button>
+                <button class="ui-btn level-btn" data-level="2">Level 3<br><span style="font-size: 11px; opacity: 0.8; font-weight: normal;">Moving Steps</span></button>
+                <button class="ui-btn level-btn" data-level="3">Level 4<br><span style="font-size: 11px; opacity: 0.8; font-weight: normal;">Inferno Boss</span></button>
+            </div>
+            <button id="btnLevelSelectBack" class="ui-btn" style="margin-top: 6px; width: 100%;">← BACK</button>
+        </div>
+
+        <!-- PAUSE MENU SCREEN -->
+        <div id="pauseMenuScreen" class="ui-panel" style="display: none;">
+            <h2 class="ui-title" style="font-size: 32px;">PAUSED</h2>
+            <p class="ui-subtitle">Game is suspended</p>
+            <div class="ui-btn-group">
+                <button id="btnResume" class="ui-btn primary-btn">▶ RESUME</button>
+                <button id="btnRestart" class="ui-btn">🔄 RESTART LEVEL</button>
+                <button id="btnPauseSettings" class="ui-btn">⚙ SETTINGS</button>
+                <button id="btnPauseMainMenu" class="ui-btn">🏠 MAIN MENU</button>
+            </div>
+            <div class="ui-footer-hint">Press [Esc] or [P] to Resume</div>
+        </div>
+
+        <!-- GAME OVER SCREEN -->
+        <div id="gameOverScreen" class="ui-panel" style="display: none;">
+            <h2 class="ui-title" style="font-size: 36px; color: #ff4444; text-shadow: 0 0 20px rgba(255,50,50,0.65);">GAME OVER</h2>
+            <p class="ui-subtitle">You Ran out of Lives!</p>
+            <div class="ui-btn-group">
+                <button id="btnRetry" class="ui-btn primary-btn">🔄 RETRY</button>
+                <button id="btnGameOverMainMenu" class="ui-btn">🏠 MAIN MENU</button>
+            </div>
+            <div class="ui-footer-hint">Press [R] or [Enter] to Retry</div>
+        </div>
+
+        <!-- LEVEL COMPLETE SCREEN -->
+        <div id="levelCompleteScreen" class="ui-panel" style="display: none;">
+            <h2 id="levelCompleteTitle" class="ui-title" style="font-size: 32px; color: #ffd700; text-shadow: 0 0 20px rgba(255,215,0,0.65);">LEVEL COMPLETED!</h2>
+            <p id="levelCompleteSubtitle" class="ui-subtitle">Dungeon floor cleared!</p>
+            <div class="ui-btn-group">
+                <button id="btnNextLevel" class="ui-btn primary-btn">⚡ NEXT LEVEL</button>
+                <button id="btnReplayLevel" class="ui-btn">🔄 REPLAY LEVEL</button>
+                <button id="btnLevelCompleteMainMenu" class="ui-btn">🏠 MAIN MENU</button>
+            </div>
+        </div>
+
+        <!-- SETTINGS SCREEN -->
+        <div id="settingsScreen" class="ui-panel" style="display: none;">
+            <h2 class="ui-title" style="font-size: 28px;">SETTINGS</h2>
+            <div style="display: flex; flex-direction: column; gap: 16px; margin: 18px 0; width: 100%; max-width: 280px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label for="settingsMusicVol" style="font-size: 13px; font-weight: 600;">Music Volume</label>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <input id="settingsMusicVol" type="range" min="0" max="100" value="50" style="width: 100px; accent-color: #00c8ff;">
+                        <span id="settingsMusicVal" class="vol-val">50%</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label for="settingsSfxVol" style="font-size: 13px; font-weight: 600;">SFX Volume</label>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <input id="settingsSfxVol" type="range" min="0" max="100" value="70" style="width: 100px; accent-color: #ffd700;">
+                        <span id="settingsSfxVal" class="vol-val">70%</span>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+                    <span style="font-size: 13px; font-weight: 600;">Audio Output</span>
+                    <button id="settingsMuteBtn" class="ui-btn" style="padding: 7px 14px; font-size: 13px; min-width: 100px;">
+                        <span id="settingsMuteIcon">🔊</span> <span id="settingsMuteText">Mute</span>
+                    </button>
+                </div>
+            </div>
+            <button id="btnSettingsBack" class="ui-btn" style="margin-top: 6px; width: 100%;">← BACK</button>
+        </div>
+
+    </div>
+
+    <!-- MOBILE VIRTUAL GAMEPAD -->
+    <div id="mobileUI" style="display: none; position: absolute; bottom: 8%; width: 100%; justify-content: space-between; padding: 0 5%; box-sizing: border-box; z-index: 10; touch-action: none; pointer-events: none;">
+        <div style="display: flex; gap: 15px; pointer-events: auto;">
+            <button id="btn-left" style="width: 65px; height: 65px; border-radius: 50%; opacity: 0.75; font-size: 24px; border: 2px solid rgba(255,255,255,0.5); background: rgba(0,0,0,0.6); color: white;">&#9664;</button>
+            <button id="btn-right" style="width: 65px; height: 65px; border-radius: 50%; opacity: 0.75; font-size: 24px; border: 2px solid rgba(255,255,255,0.5); background: rgba(0,0,0,0.6); color: white;">&#9654;</button>
+        </div>
+        <div style="display: flex; gap: 15px; pointer-events: auto;">
+            <button id="btn-shoot" style="width: 65px; height: 65px; border-radius: 50%; opacity: 0.85; font-size: 24px; font-weight: bold; border: 2px solid white; background: rgba(0, 200, 255, 0.6); color: white; text-shadow: 0 0 5px black;">Z</button>
+            <button id="btn-jump" style="width: 65px; height: 65px; border-radius: 50%; opacity: 0.85; font-size: 28px; border: 2px solid white; background: rgba(255, 140, 0, 0.6); color: white; text-shadow: 0 0 5px black;">&#8673;</button>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas" width="960" height="540"></canvas>
+
+    <script src="game.js"></script>
+</body>
+</html>
