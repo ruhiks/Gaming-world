@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -261,9 +261,71 @@
                 font-size: 14px;
             }
         }
+
+        /* Opening cinematic overlay */
+        #introLayer {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: #05040b;
+            opacity: 1;
+            transition: opacity 550ms ease;
+        }
+        #introLayer.intro-hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        #introVideo {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #05040b;
+        }
+        .intro-controls {
+            position: absolute;
+            top: max(16px, env(safe-area-inset-top));
+            right: max(16px, env(safe-area-inset-right));
+            display: flex;
+            gap: 10px;
+            z-index: 2;
+        }
+        .intro-control-btn {
+            border: 1px solid rgba(160, 240, 255, 0.55);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: #fff;
+            background: rgba(10, 10, 24, 0.82);
+            font-weight: 700;
+            letter-spacing: 0.4px;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+        }
+        .intro-control-btn:hover {
+            background: rgba(35, 25, 65, 0.95);
+            border-color: #ffd700;
+        }
+        .intro-control-btn:disabled {
+            opacity: 0.7;
+            cursor: default;
+        }
     </style>
 </head>
 <body>
+    <!-- OPENING CINEMATIC: put the video at assets/intro.mp4 -->
+    <div id="introLayer" aria-label="Wizard Dungeon opening cinematic">
+        <video id="introVideo" autoplay muted playsinline preload="auto">
+            <source src="assets/intro.mp4" type="video/mp4">
+        </video>
+        <div class="intro-controls">
+            <button id="introSoundBtn" class="intro-control-btn" type="button">🔇 SOUND OFF</button>
+            <button id="skipIntroBtn" class="intro-control-btn" type="button">SKIP INTRO »</button>
+        </div>
+    </div>
+
     <!-- IN-GAME PAUSE BUTTON -->
     <button id="btnInGamePause" title="Pause Game (Esc / P)" style="display: none;">
         ⏸ Pause

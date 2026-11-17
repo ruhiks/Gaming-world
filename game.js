@@ -53,6 +53,9 @@ const GAME_STATES = {
 let gameState     = GAME_STATES.MAIN_MENU;
 let previousState = GAME_STATES.MAIN_MENU;
 
+// Intro cinematic gates background music until the intro finishes or is skipped.
+let introFinished = false;
+
 function setGameState(newState) {
   if (newState === GAME_STATES.SETTINGS && gameState !== GAME_STATES.SETTINGS) {
     previousState = gameState;
@@ -366,7 +369,7 @@ class SoundSystem {
     this.getAudioContext();
     if (!this.isUnlocked) {
       this.isUnlocked = true;
-      this.startBGM();
+      if (introFinished) this.startBGM();
     }
   }
 
@@ -3056,11 +3059,70 @@ function loop(currentTime) {
   requestAnimationFrame(loop);
 }
 
+/* ================= INTRO CINEMATIC ================= */
+function finishIntro() {
+  if (introFinished) return;
+  introFinished = true;
+
+  const introLayer = document.getElementById("introLayer");
+  const introVideo = document.getElementById("introVideo");
+  if (introLayer) {
+    introLayer.classList.add("intro-hidden");
+    window.setTimeout(() => { introLayer.style.display = "none"; }, 550);
+  }
+  if (introVideo) introVideo.pause();
+
+  // Start game music now if the player has already interacted.
+  if (soundSystem && soundSystem.isUnlocked) soundSystem.startBGM();
+}
+
+function initIntro() {
+  const introLayer = document.getElementById("introLayer");
+  const introVideo = document.getElementById("introVideo");
+  const skipButton = document.getElementById("skipIntroBtn");
+  const soundButton = document.getElementById("introSoundBtn");
+
+  if (!introLayer || !introVideo) {
+    finishIntro();
+    return;
+  }
+
+  if (skipButton) skipButton.addEventListener("click", finishIntro);
+
+  if (soundButton) {
+    soundButton.addEventListener("click", () => {
+      introVideo.muted = false;
+      introVideo.volume = 0.85;
+      introVideo.play().catch(() => {});
+      soundButton.textContent = "🔊 SOUND ON";
+      soundButton.disabled = true;
+    });
+  }
+
+  introVideo.addEventListener("ended", finishIntro, { once: true });
+  introVideo.addEventListener("error", finishIntro, { once: true });
+
+  // Muted autoplay is supported by more desktop and mobile browsers.
+  introVideo.muted = true;
+  introVideo.playsInline = true;
+  const playAttempt = introVideo.play();
+  if (playAttempt && typeof playAttempt.catch === "function") {
+    playAttempt.catch(() => {
+      // If autoplay is blocked, a tap on the cinematic starts playback.
+      const startOnTap = () => {
+        introVideo.play().catch(finishIntro);
+      };
+      introLayer.addEventListener("click", startOnTap, { once: true });
+    });
+  }
+}
+
 /* ================= INITIALIZATION ================= */
 preloadAssets(() => {
   loadLevel(0);
   initUI();
   setGameState(GAME_STATES.MAIN_MENU);
+  initIntro();
 });
 
 requestAnimationFrame(loop);
